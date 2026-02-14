@@ -2,6 +2,10 @@
   "name": "web-app",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
