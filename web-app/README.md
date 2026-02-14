@@ -5,7 +5,7 @@
 ### 前提条件
 
 - Node.js 20.19.0 以上
-- pnpm（`corepack enable` のあと `corepack prepare pnpm@latest --activate` で有効化できます）
+- pnpm
 
 ### インストール
 
