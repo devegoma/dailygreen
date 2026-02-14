@@ -29,7 +29,6 @@ RUN pnpm install --prod --frozen-lockfile
 
 # 本番用（実行）ステージ
 FROM base AS runner
-RUN corepack enable && corepack prepare pnpm@latest --activate
 ENV NODE_ENV=production
 COPY --from=build /app/build ./build
 COPY --from=build /app/package.json ./package.json
