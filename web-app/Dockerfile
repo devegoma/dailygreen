@@ -1,7 +1,7 @@
 # NOTE: ひとまず開発向けにこのDockerfileを作成しました。今後インフラへのデプロイに際しては適宜調整される想定です。
 
 # ベースイメージ
-FROM node:20-alpine AS base
+FROM node:20.19-alpine AS base
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
