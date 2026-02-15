@@ -51,6 +51,7 @@ const resources = [
 		href: "https://reactrouter.com/docs",
 		text: "React Router Docs",
 		icon: (
+			// biome-ignore lint/a11y/noSvgWithoutTitle: decorative icon with aria-hidden; link text provides context
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="24"
@@ -72,6 +73,7 @@ const resources = [
 		href: "https://rmx.as/discord",
 		text: "Join Discord",
 		icon: (
+			// biome-ignore lint/a11y/noSvgWithoutTitle: decorative icon with aria-hidden; link text provides context
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="24"
