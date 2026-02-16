@@ -11,10 +11,8 @@
 		"dev": "react-router dev",
 		"start": "react-router-serve ./build/server/index.js",
 		"typecheck": "react-router typegen && tsc",
-		"lint": "biome lint ./app",
-		"format": "biome format ./app --write",
-		"check": "biome check --write ./app",
-		"check:ci": "biome check ./app"
+		"check": "biome check --write .",
+		"check:ci": "biome check ."
 	},
 	"dependencies": {
 		"@react-router/node": "7.12.0",
