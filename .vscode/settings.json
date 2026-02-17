@@ -1,6 +1,11 @@
 {
 	"biome.enabled": true,
-	"biome.lsp.bin": "web-app/node_modules/.bin/biome",
+	"biome.runFromTemporaryLocation": false,
+	"biome.lsp.bin": {
+		"win32-x64": "web-app/node_modules/.pnpm/@biomejs+cli-win32-x64@2.3.15/node_modules/@biomejs/cli-win32-x64/biome.exe",
+		"darwin-arm64": "web-app/node_modules/.bin/biome",
+		"darwin-x64": "web-app/node_modules/.bin/biome"
+	},
 	"editor.defaultFormatter": "biomejs.biome",
 	"[json]": {
 		"editor.defaultFormatter": "biomejs.biome"
