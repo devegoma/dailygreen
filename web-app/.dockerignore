@@ -1,0 +1,9 @@
+.react-router
+build
+node_modules
+README.md
+.git
+.github
+*.log
+.env
+.DS_Store
