@@ -74,31 +74,7 @@
 - 習慣名の下にストリーク数を表示
 - 完了済みのカードはグレーアウトし、チェックマークをつける。
 
-## 5. データ構造（案）
-
-エンジニアが実装を始める際に必要となるデータ項目です。**DB の物理カラム名・型は [docs/db.md](db.md) の ER 図に準拠**します。
-
-### Habit（習慣）
-
-- `id`: string (UUID, PK)
-- `userId`: string (FK)
-- `name`: string（習慣名）
-- `emoji`: string（アイコン用）
-- `deadTime`: time（期限時刻, HH:mm:ss）
-- `currentStreak` / `maxStreak`: integer
-- `isArchived`: boolean
-- `createdAt` / `updatedAt`: timestamptz
-
-### DailyRecord（日々の記録）
-
-- `id`: string (UUID, PK)
-- `habitId`: string (FK)
-- `userId`: string (FK)
-- `date`: date（日付, YYYY-MM-DD）
-- `status`: record_status（ENUM: `done` | `missed`）
-- `completedAt`: timestamptz（実際に完了した時刻）
-
-## 6. 今後の検討事項（Q&A）
+## 5. 今後の検討事項（Q&A）
 
 - **Q. 複数デッドタイム:** 同じ習慣を1日に複数回行う場合はどう管理するか？
 - **Q. 通知仕様:** デッドタイム直前以外に、朝のやる気出し通知などは必要か？
