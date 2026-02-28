@@ -42,8 +42,11 @@ pnpm run build
 docker compose up -d
 ```
 
-- アプリ: `http://localhost:5173`
-- DB: `localhost:5432`（接続時は `web-app/.env` に `DATABASE_URL` を設定。サンプルは `.env.example` を参照）
+- アプリ（ホストからアクセス）: `http://localhost:5173`
+- DB（ホスト上のクライアントから接続する場合）: `localhost:5432`
+- DB（Docker Compose 内の `web` コンテナから接続する場合）: ホスト名 `db`, ポート `5432`
+
+アプリケーション（`web` コンテナ内で動作するプロセス）は、`web-app/.env` の `DATABASE_URL` を読み込みます。例: ホスト上の `psql` などから接続する場合は `localhost`、`web` コンテナから接続する場合は `db` をホスト名として指定してください。サンプルは `.env.example` を参照してください。
 
 ログ確認・停止:
 
