@@ -24,8 +24,14 @@ export const user = pgTable("user", {
 	// --- カスタムカラム ---
 	timezone: text("timezone").default("Asia/Tokyo").notNull(),
 	// ----------------------
-	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true }).notNull(),
-	updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true }).notNull(),
+	createdAt: timestamp("createdAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
+	updatedAt: timestamp("updatedAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
 });
 
 export const session = pgTable("session", {
@@ -34,11 +40,20 @@ export const session = pgTable("session", {
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
 	token: text("token").notNull().unique(),
-	expiresAt: timestamp("expiresAt", { mode: "date", withTimezone: true }).notNull(),
+	expiresAt: timestamp("expiresAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
 	ipAddress: text("ipAddress"),
 	userAgent: text("userAgent"),
-	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true }).notNull(),
-	updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true }).notNull(),
+	createdAt: timestamp("createdAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
+	updatedAt: timestamp("updatedAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
 });
 
 export const account = pgTable("account", {
@@ -51,21 +66,42 @@ export const account = pgTable("account", {
 	accessToken: text("accessToken"),
 	refreshToken: text("refreshToken"),
 	idToken: text("idToken"),
-	accessTokenExpiresAt: timestamp("accessTokenExpiresAt", { mode: "date", withTimezone: true }),
-	refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt", { mode: "date", withTimezone: true }),
+	accessTokenExpiresAt: timestamp("accessTokenExpiresAt", {
+		mode: "date",
+		withTimezone: true,
+	}),
+	refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt", {
+		mode: "date",
+		withTimezone: true,
+	}),
 	scope: text("scope"),
 	password: text("password"),
-	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true }).notNull(),
-	updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true }).notNull(),
+	createdAt: timestamp("createdAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
+	updatedAt: timestamp("updatedAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
 });
 
 export const verification = pgTable("verification", {
 	id: text("id").primaryKey(),
 	identifier: text("identifier").notNull(),
 	value: text("value").notNull(),
-	expiresAt: timestamp("expiresAt", { mode: "date", withTimezone: true }).notNull(),
-	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true }).notNull(),
-	updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true }).notNull(),
+	expiresAt: timestamp("expiresAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
+	createdAt: timestamp("createdAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
+	updatedAt: timestamp("updatedAt", {
+		mode: "date",
+		withTimezone: true,
+	}).notNull(),
 });
 
 // ==========================================
