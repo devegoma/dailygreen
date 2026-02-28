@@ -14,8 +14,8 @@ erDiagram
     daily_record }o--|| user : "records"
     session }o--|| user : "owns"
     account }o--|| user : "links"
-    share_link }o--|| user : "creates"
-    push_subscription }o--|| user : "subscribes"
+    user ||--o{ share_link : "creates"
+    user ||--o{ push_subscription : "subscribes"
 
     daily_record {
         string id PK
