@@ -8,13 +8,36 @@ Better Auth向けのテーブル
 
 ```mermaid
 erDiagram
-    user ||--o{ session : "owns"
-    user ||--o{ account : "links"
-    user ||--o{ habit : "manages"
-    user ||--o{ daily_record : "records"
-    user ||--o{ share_link : "creates"
-    user ||--o{ push_subscription : "subscribes"
-    habit ||--o{ daily_record : "has"
+    direction TB
+    daily_record }o--|| habit : "has"
+    habit }o--|| user : "manages"
+    daily_record }o--|| user : "records"
+    session }o--|| user : "owns"
+    account }o--|| user : "links"
+    share_link }o--|| user : "creates"
+    push_subscription }o--|| user : "subscribes"
+
+    daily_record {
+        string id PK
+        string habitId FK
+        string userId FK
+        date date "YYYY-MM-DD"
+        record_status status "ENUM(done, missed)"
+        timestamptz completedAt
+    }
+
+    habit {
+        string id PK
+        string userId FK
+        string name
+        string emoji
+        time deadTime "HH:mm:ss"
+        integer currentStreak
+        integer maxStreak
+        boolean isArchived
+        timestamptz createdAt
+        timestamptz updatedAt
+    }
 
     user {
         string id PK
@@ -51,28 +74,6 @@ erDiagram
         timestamptz expiresAt
         timestamptz createdAt
         timestamptz updatedAt
-    }
-
-    habit {
-        string id PK
-        string userId FK
-        string name
-        string emoji
-        time deadTime "HH:mm:ss"
-        integer currentStreak
-        integer maxStreak
-        boolean isArchived
-        timestamptz createdAt
-        timestamptz updatedAt
-    }
-
-    daily_record {
-        string id PK
-        string habitId FK
-        string userId FK
-        date date "YYYY-MM-DD"
-        record_status status "ENUM(done, missed)"
-        timestamptz completedAt
     }
 
     share_link {
