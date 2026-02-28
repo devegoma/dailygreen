@@ -8,13 +8,35 @@ Better Auth向けのテーブル
 
 ```mermaid
 erDiagram
-    user ||--o{ session : "owns"
-    user ||--o{ account : "links"
-    user ||--o{ habit : "manages"
-    user ||--o{ daily_record : "records"
-    user ||--o{ share_link : "creates"
-    user ||--o{ push_subscription : "subscribes"
-    habit ||--o{ daily_record : "has"
+    daily_record }o--|| habit : "has"
+    habit }o--|| user : "manages"
+    daily_record }o--|| user : "records"
+    session }o--|| user : "owns"
+    account }o--|| user : "links"
+    share_link }o--|| user : "creates"
+    push_subscription }o--|| user : "subscribes"
+
+    daily_record {
+        string id PK
+        string habitId FK
+        string userId FK
+        date date "YYYY-MM-DD"
+        record_status status "ENUM(done, missed)"
+        timestamptz completedAt
+    }
+
+    habit {
+        string id PK
+        string userId FK
+        string name
+        string emoji
+        time deadTime "HH:mm:ss"
+        integer currentStreak
+        integer maxStreak
+        boolean isArchived
+        timestamptz createdAt
+        timestamptz updatedAt
+    }
 
     user {
         string id PK
@@ -53,28 +75,6 @@ erDiagram
         timestamptz updatedAt
     }
 
-    habit {
-        string id PK
-        string userId FK
-        string name
-        string emoji
-        time deadTime "HH:mm:ss"
-        integer currentStreak
-        integer maxStreak
-        boolean isArchived
-        timestamptz createdAt
-        timestamptz updatedAt
-    }
-
-    daily_record {
-        string id PK
-        string habitId FK
-        string userId FK
-        date date "YYYY-MM-DD"
-        record_status status "ENUM(done, missed)"
-        timestamptz completedAt
-    }
-
     share_link {
         string id PK "ランダムな文字列 (例: a1b2c3d4)"
         string userId FK
@@ -88,7 +88,6 @@ erDiagram
         text token "FCMトークンやWebPush情報"
         timestamptz createdAt
     }
-
 ```
 
 **補足:** `daily_record.status` の型 `record_status` は、DB 上は PostgreSQL の ENUM 型（または `text` + CHECK 制約）とし、取りうる値は `'done'`（完了）と `'missed'`（未達）です。
