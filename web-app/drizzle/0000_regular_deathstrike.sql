@@ -7,18 +7,17 @@ CREATE TABLE "account" (
 	"accessToken" text,
 	"refreshToken" text,
 	"idToken" text,
-	"accessTokenExpiresAt" timestamp,
-	"refreshTokenExpiresAt" timestamp,
+	"accessTokenExpiresAt" timestamp with time zone,
+	"refreshTokenExpiresAt" timestamp with time zone,
 	"scope" text,
 	"password" text,
-	"createdAt" timestamp NOT NULL,
-	"updatedAt" timestamp NOT NULL
+	"createdAt" timestamp with time zone NOT NULL,
+	"updatedAt" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "daily_record" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"habitId" uuid NOT NULL,
-	"userId" text NOT NULL,
 	"date" date NOT NULL,
 	"status" "record_status" NOT NULL,
 	"completedAt" timestamp with time zone,
@@ -50,11 +49,11 @@ CREATE TABLE "session" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
 	"token" text NOT NULL,
-	"expiresAt" timestamp NOT NULL,
+	"expiresAt" timestamp with time zone NOT NULL,
 	"ipAddress" text,
 	"userAgent" text,
-	"createdAt" timestamp NOT NULL,
-	"updatedAt" timestamp NOT NULL,
+	"createdAt" timestamp with time zone NOT NULL,
+	"updatedAt" timestamp with time zone NOT NULL,
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
@@ -72,8 +71,8 @@ CREATE TABLE "user" (
 	"emailVerified" boolean NOT NULL,
 	"image" text,
 	"timezone" text DEFAULT 'Asia/Tokyo' NOT NULL,
-	"createdAt" timestamp NOT NULL,
-	"updatedAt" timestamp NOT NULL,
+	"createdAt" timestamp with time zone NOT NULL,
+	"updatedAt" timestamp with time zone NOT NULL,
 	CONSTRAINT "user_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
@@ -81,14 +80,13 @@ CREATE TABLE "verification" (
 	"id" text PRIMARY KEY NOT NULL,
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
-	"expiresAt" timestamp NOT NULL,
-	"createdAt" timestamp NOT NULL,
-	"updatedAt" timestamp NOT NULL
+	"expiresAt" timestamp with time zone NOT NULL,
+	"createdAt" timestamp with time zone NOT NULL,
+	"updatedAt" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "daily_record" ADD CONSTRAINT "daily_record_habitId_habit_id_fk" FOREIGN KEY ("habitId") REFERENCES "public"."habit"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "daily_record" ADD CONSTRAINT "daily_record_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "habit" ADD CONSTRAINT "habit_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "push_subscription" ADD CONSTRAINT "push_subscription_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

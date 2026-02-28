@@ -11,7 +11,6 @@ erDiagram
     direction TB
     daily_record }o--|| habit : "has"
     habit }o--|| user : "manages"
-    daily_record }o--|| user : "records"
     session }o--|| user : "owns"
     account }o--|| user : "links"
     user ||--o{ share_link : "creates"
@@ -20,7 +19,6 @@ erDiagram
     daily_record {
         uuid id PK
         uuid habitId FK
-        text userId FK
         date date "YYYY-MM-DD"
         record_status status "ENUM(done, missed)"
         timestamptz completedAt
@@ -110,7 +108,8 @@ erDiagram
 * `share_link.id` のみ、URL共有用の短縮ランダム文字列のため `text` 型とします。
 * 文字列カラムは特別な制約がない限り `text`。
 * `daily_record.status` の `record_status` は PostgreSQL の ENUM 型とし、値は `'done'`（完了）と `'missed'`（未達）。
-* **【重要】** `daily_record` テーブルには、`habitId` と `date` の組み合わせに対する **複合ユニーク制約 (UNIQUE)** を設定し、同一日に同じ習慣が複数回記録されるのをデータベースレベルで防ぎます。
+* **【重要】** `daily_record` テーブルには `userId` を持たせず、どのユーザーの記録かは **`daily_record → habit → userId`** で辿ります（正規化により「他ユーザーの習慣に記録をつける」バグを防止）。
+* **【重要】** `daily_record` には、`habitId` と `date` の組み合わせに対する **複合ユニーク制約 (UNIQUE)** を設定し、同一日に同じ習慣が複数回記録されるのをデータベースレベルで防ぎます。
 * `push_subscription.token` は重複登録による二重送信防止のため `UNIQUE` 制約付き（`UK`）。複数デバイスは別レコードで管理し、upsert（INSERT ON CONFLICT DO UPDATE）で常に最新トークンに上書きします。
 
 ## OGPシェア機能の仕組み (share_link)
