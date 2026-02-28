@@ -18,80 +18,84 @@ erDiagram
     user ||--o{ push_subscription : "subscribes"
 
     daily_record {
-        string id PK
-        string habitId FK
-        string userId FK
+        uuid id PK
+        uuid habitId FK
+        uuid userId FK
         date date "YYYY-MM-DD"
         record_status status "ENUM(done, missed)"
         timestamptz completedAt
     }
 
     habit {
-        string id PK
-        string userId FK
-        string name
-        string emoji
+        uuid id PK
+        uuid userId FK
+        text name
+        text emoji
         time deadTime "HH:mm:ss"
-        integer currentStreak
-        integer maxStreak
+        int currentStreak
+        int maxStreak
         boolean isArchived
         timestamptz createdAt
         timestamptz updatedAt
     }
 
     user {
-        string id PK
-        string name
-        string email UK
+        uuid id PK
+        text name
+        text email UK
         boolean emailVerified
-        string image
-        string timezone "Asia/Tokyo"
+        text image
+        text timezone "Asia/Tokyo"
         timestamptz createdAt
         timestamptz updatedAt
     }
 
     session {
-        string id PK
-        string userId FK
-        string token UK
+        uuid id PK
+        uuid userId FK
+        text token UK
         timestamptz expiresAt
     }
 
     account {
-        string id PK
-        string userId FK
-        string providerId "google"
-        string accountId
+        uuid id PK
+        uuid userId FK
+        text providerId "google"
+        text accountId
         text idToken
         timestamptz accessTokenExpiresAt
         timestamptz refreshTokenExpiresAt
     }
 
     verification {
-        string id PK
-        string identifier
-        string value
+        uuid id PK
+        text identifier
+        text value
         timestamptz expiresAt
         timestamptz createdAt
         timestamptz updatedAt
     }
 
     share_link {
-        string id PK "ランダムな文字列 (例: a1b2c3d4)"
-        string userId FK
+        text id PK "ランダムな文字列 (例: a1b2c3d4)"
+        uuid userId FK
         boolean isActive "シェアを無効化するフラグ"
         timestamptz createdAt
     }
 
     push_subscription {
-        string id PK
-        string userId FK
-        text token "FCMトークンやWebPush情報"
+        uuid id PK
+        uuid userId FK
+        text token UK "FCMトークンやWebPush情報"
         timestamptz createdAt
     }
 ```
 
-**補足:** `daily_record.status` の型 `record_status` は、DB 上は PostgreSQL の ENUM 型（または `text` + CHECK 制約）とし、取りうる値は `'done'`（完了）と `'missed'`（未達）です。
+**型の補足:**
+- ID カラムは PostgreSQL の `uuid` 型。Better Auth が生成する文字列 ID もそのまま `uuid` として扱います。`share_link.id` のみ短縮ランダム文字列のため `text`。
+- 文字列カラムは特別な制約がない限り `text`。
+- `daily_record.status` の `record_status` は PostgreSQL の ENUM 型（または `text` + CHECK 制約）とし、値は `'done'`（完了）と `'missed'`（未達）。
+- `push_subscription.token` は重複登録による二重送信防止のため `UNIQUE` 制約付き（`UK`）。複数デバイスは別レコードで管理し、upsert（INSERT ON CONFLICT DO UPDATE）で常に最新トークンに上書きします。
 
 ## OGPシェア機能の仕組み (share_link)
 
