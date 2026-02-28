@@ -33,24 +33,28 @@ pnpm run dev
 pnpm run build
 ```
 
-## Docker で起動
+## Docker Compose で起動（PostgreSQL + Web）
 
-#### 本番用
-
-デフォルトのビルドターゲットは本番用（`runner` ステージ）です。
+リポジトリルートに `compose.yml` があります。ルートで以下を実行すると、PostgreSQL 17（Alpine）と Web アプリをまとめて起動できます。DB は `postgres_data` ボリュームで永続化され、DB の healthcheck 通過後に Web が起動します。
 
 ```bash
-docker build -t my-app .
-docker run -p 3000:3000 my-app
+# リポジトリルートで実行
+docker compose up -d
 ```
 
-起動後、ブラウザで `http://localhost:3000` にアクセスできます。
+- アプリ: `http://localhost:5173`
+- DB: `localhost:5432`（接続時は `web-app/.env` に `DATABASE_URL` を設定。サンプルは `.env.example` を参照）
 
-#### 開発用
-
-開発サーバーで動かす場合は `--target dev` でビルドします。ソースをボリュームマウントするとホットリロードが有効になります。
+ログ確認・停止:
 
 ```bash
-docker build --target dev -t my-app:dev .
-docker run -p 5173:5173 my-app:dev
+docker compose logs -f db web
+docker compose down
+```
+
+ボリュームを削除して DB を初期化し直す場合（`-v` で関連ボリュームを一括削除）:
+
+```bash
+docker compose down -v
+docker compose up -d
 ```
