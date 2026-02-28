@@ -76,23 +76,27 @@
 
 ## 5. データ構造（案）
 
-エンジニアが実装を始める際に必要となるデータ項目です。
+エンジニアが実装を始める際に必要となるデータ項目です。**DB の物理カラム名・型は [docs/db.md](db.md) の ER 図に準拠**します。
 
 ### Habit（習慣）
 
-- `id`: UUID
-- `user_id`: UUID
+- `id`: string (UUID, PK)
+- `userId`: string (FK)
 - `name`: string（習慣名）
 - `emoji`: string（アイコン用）
-- `dead_time`: time（期限時刻）
+- `deadTime`: time（期限時刻, HH:mm:ss）
+- `currentStreak` / `maxStreak`: integer
+- `isArchived`: boolean
+- `createdAt` / `updatedAt`: timestamptz
 
 ### DailyRecord（日々の記録）
 
-- `habit_id`: UUID
-- `user_id`: UUID
-- `date`: date（日付）
-- `status`: enum (done, missed)
-- `completed_at`: datetime（実際に完了した時間）
+- `id`: string (UUID, PK)
+- `habitId`: string (FK)
+- `userId`: string (FK)
+- `date`: date（日付, YYYY-MM-DD）
+- `status`: record_status（ENUM: `done` | `missed`）
+- `completedAt`: timestamptz（実際に完了した時刻）
 
 ## 6. 今後の検討事項（Q&A）
 

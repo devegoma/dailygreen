@@ -71,7 +71,7 @@ erDiagram
         string habitId FK
         string userId FK
         date date "YYYY-MM-DD"
-        record_status status "done / missed (ENUM)"
+        record_status status "ENUM(done, missed)"
         timestamptz completedAt
     }
 
@@ -91,11 +91,13 @@ erDiagram
 
 ```
 
+**補足:** `daily_record.status` の型 `record_status` は、DB 上は PostgreSQL の ENUM 型（または `text` + CHECK 制約）とし、取りうる値は `'done'`（完了）と `'missed'`（未達）です。
+
 ## OGPシェア機能の仕組み (share_link)
 
 URLの生成: ユーザーが「シェア」ボタンを押すと、share_link テーブルに新しいレコードを作成し、その id (短縮ID) を含めたURL (https://dailygreen.app/share/[id]) を発行します。
 
-OGP画像の動的生成: XなどのクローラーがこのURLにアクセスすると、サーバー（Next.jsのAPIルートなど）は share_link テーブルから userId を引き出し、そのユーザーの最新の habit と daily_record を取得してOGP画像（草のグラフなど）を動的に生成して返します。
+OGP画像の動的生成: XなどのクローラーがこのURLにアクセスすると、サーバー側のルート／ハンドラでは share_link テーブルから userId を引き出し、そのユーザーの最新の habit と daily_record を取得してOGP画像（草のグラフなど）を動的に生成して返します。
 
 プライバシー管理: isActive を false にすることで、過去にシェアしたリンクからのアクセスやOGP表示を即座に遮断できます。
 
