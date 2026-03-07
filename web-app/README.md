@@ -80,3 +80,11 @@ pnpm db:migrate
 
 スキーマの詳細や ER 図は [docs/db.md](../docs/db.md) を参照してください。
 
+### 認証（Better Auth）
+
+起動には **必須の環境変数** を `web-app/.env` に設定してください（未設定時は起動時にエラーで停止します）。サンプルは `web-app/.env.example` を参照してください。
+
+- **BETTER_AUTH_SECRET**: 32 文字以上のランダム文字列（例: `openssl rand -base64 32`）
+- **BETTER_AUTH_URL**: アプリのベース URL（開発時は `http://localhost:5173`）
+- **GOOGLE_CLIENT_ID**: Google OAuth クライアント ID
+- **GOOGLE_CLIENT_SECRET**: Google OAuth クライアントシークレット
