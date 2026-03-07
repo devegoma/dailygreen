@@ -1,6 +1,6 @@
 ## ER図 (Entity-Relationship Diagram)
 
-Better Auth向けのテーブル
+Better Auth向けのテーブル（標準カラムを網羅）
 - user (timezoneは独自カラム)
 - session
 - account
@@ -11,7 +11,6 @@ erDiagram
     direction TB
     daily_record }o--|| habit : "has"
     habit }o--|| user : "manages"
-    daily_record }o--|| user : "records"
     session }o--|| user : "owns"
     account }o--|| user : "links"
     user ||--o{ share_link : "creates"
@@ -20,15 +19,15 @@ erDiagram
     daily_record {
         uuid id PK
         uuid habitId FK
-        uuid userId FK
         date date "YYYY-MM-DD"
         record_status status "ENUM(done, missed)"
         timestamptz completedAt
+        %% UK: habitId と date の複合ユニーク制約（同一日の二重登録防止）
     }
 
     habit {
         uuid id PK
-        uuid userId FK
+        text userId FK
         text name
         text emoji
         time deadTime "HH:mm:ss"
@@ -40,7 +39,7 @@ erDiagram
     }
 
     user {
-        uuid id PK
+        text id PK
         text name
         text email UK
         boolean emailVerified
@@ -51,24 +50,34 @@ erDiagram
     }
 
     session {
-        uuid id PK
-        uuid userId FK
+        text id PK
+        text userId FK
         text token UK
         timestamptz expiresAt
+        text ipAddress
+        text userAgent
+        timestamptz createdAt
+        timestamptz updatedAt
     }
 
     account {
-        uuid id PK
-        uuid userId FK
-        text providerId "google"
+        text id PK
+        text userId FK
         text accountId
+        text providerId "google"
+        text accessToken
+        text refreshToken
         text idToken
         timestamptz accessTokenExpiresAt
         timestamptz refreshTokenExpiresAt
+        text scope
+        text password
+        timestamptz createdAt
+        timestamptz updatedAt
     }
 
     verification {
-        uuid id PK
+        text id PK
         text identifier
         text value
         timestamptz expiresAt
@@ -77,25 +86,31 @@ erDiagram
     }
 
     share_link {
-        text id PK "ランダムな文字列 (例: a1b2c3d4)"
-        uuid userId FK
+        text id PK "ランダムな短縮文字列 (例: a1b2c3d4)"
+        text userId FK
         boolean isActive "シェアを無効化するフラグ"
         timestamptz createdAt
     }
 
     push_subscription {
         uuid id PK
-        uuid userId FK
+        text userId FK
         text token UK "FCMトークンやWebPush情報"
         timestamptz createdAt
     }
+
 ```
 
 **型の補足:**
-- ID カラムは PostgreSQL の `uuid` 型。Better Auth が生成する文字列 ID もそのまま `uuid` として扱います。`share_link.id` のみ短縮ランダム文字列のため `text`。
-- 文字列カラムは特別な制約がない限り `text`。
-- `daily_record.status` の `record_status` は PostgreSQL の ENUM 型（または `text` + CHECK 制約）とし、値は `'done'`（完了）と `'missed'`（未達）。
-- `push_subscription.token` は重複登録による二重送信防止のため `UNIQUE` 制約付き（`UK`）。複数デバイスは別レコードで管理し、upsert（INSERT ON CONFLICT DO UPDATE）で常に最新トークンに上書きします。
+
+* 認証系テーブル (`user`, `session`, `account`, `verification`) の ID と、それを参照する `userId` は、Better Authの仕様に合わせて **`text` 型** とします。
+* アプリ固有テーブル (`habit`, `daily_record`, `push_subscription`) の ID は、堅牢な **`uuid` 型**（Drizzleの `defaultRandom()` で自動生成）とします。
+* `share_link.id` のみ、URL共有用の短縮ランダム文字列のため `text` 型とします。
+* 文字列カラムは特別な制約がない限り `text`。
+* `daily_record.status` の `record_status` は PostgreSQL の ENUM 型とし、値は `'done'`（完了）と `'missed'`（未達）。
+* **【重要】** `daily_record` テーブルには `userId` を持たせず、どのユーザーの記録かは **`daily_record → habit → userId`** で辿ります（正規化により「他ユーザーの習慣に記録をつける」バグを防止）。
+* **【重要】** `daily_record` には、`habitId` と `date` の組み合わせに対する **複合ユニーク制約 (UNIQUE)** を設定し、同一日に同じ習慣が複数回記録されるのをデータベースレベルで防ぎます。
+* `push_subscription.token` は重複登録による二重送信防止のため `UNIQUE` 制約付き（`UK`）。複数デバイスは別レコードで管理し、upsert（INSERT ON CONFLICT DO UPDATE）で常に最新トークンに上書きします。
 
 ## OGPシェア機能の仕組み (share_link)
 

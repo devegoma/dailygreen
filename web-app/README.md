@@ -62,3 +62,21 @@ docker compose down
 docker compose down -v
 docker compose up -d
 ```
+
+### データベースのマイグレーション
+
+`docker compose up` ではマイグレーションは自動実行されません。**初回起動時やスキーマ変更後**は、DB が起動したうえで手動でマイグレーションを実行してください。
+
+```bash
+# リポジトリルートで docker compose up -d 済みであること。その後:
+cd web-app
+# .env の DATABASE_URL がホストから接続する場合は localhost、コンテナ内で実行する場合は db
+pnpm db:migrate
+```
+
+- **マイグレーションの適用:** `pnpm db:migrate`（Drizzle の未適用マイグレーションを実行）
+- **マイグレーション SQL の生成（スキーマ変更後）:** `pnpm db:generate`
+- **DB の閲覧:** `pnpm db:studio`（Drizzle Studio が起動）
+
+スキーマの詳細や ER 図は [docs/db.md](../docs/db.md) を参照してください。
+
