@@ -46,8 +46,9 @@ docker compose up -d
 - DB（ホスト上のクライアントから接続する場合）: `localhost:5432`
 - DB（Docker Compose 内の `web` コンテナから接続する場合）: ホスト名 `db`, ポート `5432`
 
-アプリケーション（`web` コンテナ内で動作するプロセス）は、`web-app/.env` の `DATABASE_URL` を読み込みます。例: ホスト上の `psql` などから接続する場合は `localhost`、`web` コンテナから接続する場合は `db` をホスト名として指定してください。サンプルは `.env.example` を参照してください。
+Docker Compose で起動した場合、`web` コンテナ内のアプリケーションは **コンテナの環境変数** 経由で `DATABASE_URL` / `POSTGRES_*` を受け取ります。これらは基本的に `compose.yml` の `environment` で定義され、必要に応じて「リポジトリルートの `.env`」または「シェルの環境変数」で上書きできます。
 
+一方、Docker Compose を使わずにホストマシン上で `pnpm run dev` / `pnpm run build` などを実行する場合は、`web-app/.env` の `DATABASE_URL` などが読み込まれます（サンプルは `web-app/.env.example` を参照してください）。このとき、ホスト上のクライアントから DB に接続する場合はホスト名に `localhost` を、Compose 内の `web` コンテナから接続する場合はホスト名に `db` を指定してください。
 ログ確認・停止:
 
 ```bash
