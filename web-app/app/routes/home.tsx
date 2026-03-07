@@ -44,11 +44,13 @@ export default function Home() {
 					}}
 				>
 					<h2>ログイン成功 🎉</h2>
-					<img
-						src={session.user.image ?? ""}
-						alt="User Icon"
-						style={{ width: "50px", borderRadius: "50%" }}
-					/>
+					{session.user.image ? (
+						<img
+							src={session.user.image}
+							alt="User Icon"
+							style={{ width: "50px", borderRadius: "50%" }}
+						/>
+					) : null}
 					<p>
 						<strong>名前:</strong> {session.user.name}
 					</p>

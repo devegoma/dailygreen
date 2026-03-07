@@ -82,7 +82,11 @@ pnpm db:migrate
 
 ### 認証（Better Auth）
 
-起動には **必須の環境変数** を `web-app/.env` に設定してください（未設定時は起動時にエラーで停止します）。サンプルは `web-app/.env.example` を参照してください。
+起動には **必須の環境変数** が必要です（未設定時は起動時にエラーで停止します）。サンプルは `web-app/.env.example` を参照してください。
+
+- ホストで `pnpm run dev` / `pnpm run build` を実行する場合は `web-app/.env` に設定してください。
+- 現在の開発用 `docker compose up -d` でも `./web-app` を `web` コンテナへマウントしているため、`web-app/.env` に設定すれば動作します。
+- ただし、将来的に bind mount を使わない構成や本番用イメージで起動する場合は、`compose.yml` の `environment`、リポジトリルートの `.env`、またはシェル環境変数経由で `web` コンテナに渡す必要があります。
 
 - **BETTER_AUTH_SECRET**: 32 文字以上のランダム文字列（例: `openssl rand -base64 32`）
 - **BETTER_AUTH_URL**: アプリのベース URL（開発時は `http://localhost:5173`）
