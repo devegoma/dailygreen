@@ -1,2 +1,6 @@
 # ER図プレビュー（ローカル用）
 scripts/
+
+# JetBrains IDE
+.idea/
+*.iml
