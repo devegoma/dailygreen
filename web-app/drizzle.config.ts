@@ -1,8 +1,9 @@
 import { defineConfig } from "drizzle-kit";
 
-const databaseUrl =
-	process.env.DATABASE_URL ??
-	"postgres://user:password@localhost:5432/database";
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+	throw new Error("ERROR: DATABASE_URL is not set");
+}
 
 export default defineConfig({
 	out: "./drizzle",
