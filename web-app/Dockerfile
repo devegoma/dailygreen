@@ -12,8 +12,12 @@ RUN pnpm install --frozen-lockfile
 
 # 開発用ステージ（docker-compose から target: dev で指定可能）
 FROM base AS dev
+ENV CI=true
+COPY docker-entrypoint-dev.sh /usr/local/bin/docker-entrypoint-dev.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-dev.sh
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENTRYPOINT ["docker-entrypoint-dev.sh"]
 CMD ["pnpm", "dev", "--host"]
 
 # ビルド用ステージ

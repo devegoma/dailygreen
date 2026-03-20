@@ -26,10 +26,11 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dailygreen}}
     volumes:
       - ./web-app:/app
-      - /app/node_modules
+      - web_node_modules:/app/node_modules
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  web_node_modules:
