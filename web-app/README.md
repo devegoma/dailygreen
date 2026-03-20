@@ -33,6 +33,30 @@ pnpm run dev
 pnpm run build
 ```
 
+## データベース（Drizzle ORM）
+
+スキーマは [`app/db/schema.ts`](app/db/schema.ts) にあり、[`drizzle.config.ts`](drizzle.config.ts) の `schema` / `out`（マイグレーション出力先 `./drizzle`）と対応しています。
+
+Drizzle Kit（マイグレーション生成・適用・Studio）は **`DATABASE_URL` が必要**です。アプリ本体と同様、ホストで開発する場合の `.env` や Docker Compose との関係は下記および「Docker Compose で起動」を参照してください。`drizzle.config.ts` に開発用のデフォルト URL がありますが、**実運用では README と同様に `DATABASE_URL` を明示的に設定することを推奨**します。
+
+`web-app` ディレクトリで実行するコマンド例:
+
+```bash
+pnpm run db:generate   # スキーマ変更からマイグレーション SQL を生成（./drizzle）
+pnpm run db:migrate    # マイグレーションを適用
+pnpm run db:studio     # Drizzle Studio（開発用）
+```
+
+### ルート `compose.yml` との使い分け
+
+リポジトリルートの `compose.yml` で Postgres と `web` を起動したとき、**コンテナ内のアプリ**向け `DATABASE_URL` はホスト名 `db` です（「Docker Compose で起動」の説明と同じ）。
+
+一方、**ホスト上**で `pnpm run db:generate` などを実行する場合は、マシンから DB に届くよう **`DATABASE_URL` のホストを `localhost`、ポートを `5432`** にした接続文字列を `web-app/.env` またはシェルの環境変数で渡してください。
+
+稀に **`web` コンテナ内のシェル**で `pnpm run db:*` を実行する運用にする場合は、その環境では Compose が渡す `@db:5432` の URL のままで問題ありません。
+
+参考: [Drizzle Kit 概要（公式）](https://orm.drizzle.team/docs/kit-overview)
+
 ## Docker Compose で起動（PostgreSQL + Web）
 
 リポジトリルートに `compose.yml` があります。ルートで以下を実行すると、PostgreSQL 17（Alpine）と Web アプリをまとめて起動できます。DB は `postgres_data` ボリュームで永続化され、DB の healthcheck 通過後に Web が起動します。
