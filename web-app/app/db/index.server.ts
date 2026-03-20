@@ -9,7 +9,7 @@ if (!databaseUrl) {
 
 // HMR 時にモジュール再読み込みで接続が増え続けるのを防ぐため、開発時は globalThis でシングルトン化
 const globalForPostgres = globalThis as unknown as {
-	postgresClient: ReturnType<typeof postgres> | undefined;
+	postgresClient?: ReturnType<typeof postgres>;
 };
 const queryClient =
 	globalForPostgres.postgresClient ??
