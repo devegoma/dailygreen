@@ -2,8 +2,15 @@
 .env
 /node_modules/
 
+# pnpm（store-dir をプロジェクト内にした場合のローカルストア。容量・差分が大きくなりやすい）
+.pnpm-store/
+
 # React Router
 /.react-router/
 /build/
 
 .biome_cache/
+
+# ツールキャッシュ（プロジェクト直下に生成されることがある）
+.vite/
+.cache/

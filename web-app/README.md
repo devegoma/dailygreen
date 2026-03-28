@@ -2,32 +2,12 @@
 
 ## はじめに
 
-### 前提条件
-
-- Node.js 20.19.0 以上
-- pnpm
-
-### インストール
-
-依存関係をインストールします。
+- Node.js 20.19.0 以上 · pnpm
 
 ```bash
 pnpm install
+pnpm run dev   # http://localhost:5173
 ```
-
-### 開発サーバー
-
-HMR 付きの開発サーバーを起動します。
-
-```bash
-pnpm run dev
-```
-
-アプリケーションは `http://localhost:5173` で利用できます。
-
-## 本番ビルド
-
-本番用ビルドを作成します。
 
 ```bash
 pnpm run build
@@ -35,72 +15,56 @@ pnpm run build
 
 ## データベース（Drizzle ORM）
 
-スキーマは [`app/db/schema.ts`](app/db/schema.ts) にあり、[`drizzle.config.ts`](drizzle.config.ts) の `schema` / `out`（マイグレーション出力先 `./drizzle`）と対応しています。
+スキーマ: [`app/db/schema.ts`](app/db/schema.ts) · 設定: [`drizzle.config.ts`](drizzle.config.ts)（マイグレーション出力は `./drizzle`）
 
-Drizzle Kit（マイグレーション生成・適用・Studio）は **`DATABASE_URL` が必要**です。アプリ本体と同様、ホストで開発する場合の `.env` や Docker Compose との関係は下記および「Docker Compose で起動」を参照してください。`drizzle.config.ts` に開発用のデフォルト URL がありますが、**実運用では README と同様に `DATABASE_URL` を明示的に設定することを推奨**します。
-
-`web-app` ディレクトリで実行するコマンド例:
+Kit を使うときは **`DATABASE_URL` が必要**。ホストから DB に触るときは **`localhost:5432`**、Compose 内の `web` からは **`db:5432`**（ルートの `compose.yml` 起動時は `web` 向け URL は compose が渡す）。
 
 ```bash
-pnpm run db:generate   # スキーマ変更からマイグレーション SQL を生成（./drizzle）
-pnpm run db:migrate    # マイグレーションを適用
-pnpm run db:studio     # Drizzle Studio（開発用）
+pnpm run db:generate   # スキーマ変更 → SQL 生成
+pnpm run db:migrate    # マイグレーション適用
+pnpm run db:studio     # Drizzle Studio
 ```
 
-### ルート `compose.yml` との使い分け
+参考: [Drizzle Kit 概要](https://orm.drizzle.team/docs/kit-overview) · ER 図など: [docs/db.md](../docs/db.md)
 
-リポジトリルートの `compose.yml` で Postgres と `web` を起動したとき、**コンテナ内のアプリ**向け `DATABASE_URL` はホスト名 `db` です（「Docker Compose で起動」の説明と同じ）。
+## Docker Compose（PostgreSQL + Web）
 
-一方、**ホスト上**で `pnpm run db:generate` などを実行する場合は、マシンから DB に届くよう **`DATABASE_URL` のホストを `localhost`、ポートを `5432`** にした接続文字列を `web-app/.env` またはシェルの環境変数で渡してください。
-
-稀に **`web` コンテナ内のシェル**で `pnpm run db:*` を実行する運用にする場合は、その環境では Compose が渡す `@db:5432` の URL のままで問題ありません。
-
-参考: [Drizzle Kit 概要（公式）](https://orm.drizzle.team/docs/kit-overview)
-
-## Docker Compose で起動（PostgreSQL + Web）
-
-リポジトリルートに `compose.yml` があります。ルートで以下を実行すると、PostgreSQL 17（Alpine）と Web アプリをまとめて起動できます。DB は `postgres_data` ボリュームで永続化され、DB の healthcheck 通過後に Web が起動します。
+リポジトリルートの `compose.yml` で起動します。
 
 ```bash
-# リポジトリルートで実行
 docker compose up -d
 ```
 
-- アプリ（ホストからアクセス）: `http://localhost:5173`
-- DB（ホスト上のクライアントから接続する場合）: `localhost:5432`
-- DB（Docker Compose 内の `web` コンテナから接続する場合）: ホスト名 `db`, ポート `5432`
+- アプリ: `http://localhost:5173`
+- DB（ホストから）: `localhost:5432`
 
-Docker Compose で起動した場合、`web` コンテナ内のアプリケーションは **コンテナの環境変数** 経由で `DATABASE_URL` / `POSTGRES_*` を受け取ります。これらは基本的に `compose.yml` の `environment` で定義され、必要に応じて「リポジトリルートの `.env`」または「シェルの環境変数」で上書きできます。
-
-一方、Docker Compose を使わずにホストマシン上で `pnpm run dev` / `pnpm run build` などを実行する場合は、`web-app/.env` の `DATABASE_URL` などが読み込まれます（サンプルは `web-app/.env.example` を参照してください）。このとき、ホスト上のクライアントから DB に接続する場合はホスト名に `localhost` を、Compose 内の `web` コンテナから接続する場合はホスト名に `db` を指定してください。
-ログ確認・停止:
+`web` はソースを `./web-app` からマウントし、`node_modules` は専用ボリューム＋起動時 `pnpm install` でホストのロックファイルと揃えます。
 
 ```bash
 docker compose logs -f db web
 docker compose down
 ```
 
-ボリュームを削除して DB を初期化し直す場合（`-v` で関連ボリュームを一括削除）:
+DB を含め Volume を消してやり直す場合:
 
 ```bash
 docker compose down -v
 docker compose up -d
 ```
 
-### データベースのマイグレーション
-
-`docker compose up` ではマイグレーションは自動実行されません。**初回起動時やスキーマ変更後**は、DB が起動したうえで手動でマイグレーションを実行してください。
+マイグレーションは自動では走りません。`docker compose up -d` 後、`web-app` で:
 
 ```bash
-# リポジトリルートで docker compose up -d 済みであること。その後:
 cd web-app
-# .env の DATABASE_URL がホストから接続する場合は localhost、コンテナ内で実行する場合は db
 pnpm db:migrate
 ```
 
-- **マイグレーションの適用:** `pnpm db:migrate`（Drizzle の未適用マイグレーションを実行）
-- **マイグレーション SQL の生成（スキーマ変更後）:** `pnpm db:generate`
-- **DB の閲覧:** `pnpm db:studio`（Drizzle Studio が起動）
+（ホストから `migrate` するなら `.env` の `DATABASE_URL` は `localhost` 向けに）
 
-スキーマの詳細や ER 図は [docs/db.md](../docs/db.md) を参照してください。
+## 認証（Better Auth）
 
+必須の環境変数は [`web-app/.env.example`](.env.example)。ホスト開発は `web-app/.env`、Compose 開発も同ファイルがマウントされるため同様に置けばよいです。
+
+- **BETTER_AUTH_SECRET** — 32 文字以上（例: `openssl rand -base64 32`）
+- **BETTER_AUTH_URL** — ベース URL（例: `http://localhost:5173`）
+- **GOOGLE_CLIENT_ID** / **GOOGLE_CLIENT_SECRET**

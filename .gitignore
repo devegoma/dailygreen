@@ -1,6 +1,9 @@
 # ER図プレビュー（ローカル用）
 scripts/
 
+# Cursor（デバッグログ等）
+.cursor/
+
 # JetBrains IDE
 .idea/
 *.iml
