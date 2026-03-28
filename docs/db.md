@@ -2,6 +2,7 @@
 
 ## 1. 設計方針
 
+- 本書は、現行実装そのものではなく、今回合意した MVP 要件に合わせて更新する目標 DB 設計を記述する
 - 認証は Better Auth を前提とし、ゲスト利用は扱わない
 - 習慣は毎日繰り返す単位で管理し、習慣自体に終了期限は持たせない
 - 期限は全習慣共通で 24:00 のため、習慣ごとの `deadTime` カラムは持たない
@@ -10,9 +11,19 @@
 - Activity Log の過去日の分母を再現できるよう、`habit.createdAt` と `habit.archivedAt` を保持する
 - `habit.currentStreak` と `habit.maxStreak` は参照しやすさのために保持するが、`currentStreak` はホーム画面取得前に補正可能な運用を前提とする
 
+### 1.1 現行実装との差分
+
+現行の Drizzle スキーマ (`web-app/app/db/schema.ts`, `web-app/drizzle/0000_regular_deathstrike.sql`) には、MVP 目標設計へまだ追従していないカラムが残っている。
+
+- `habit.deadTime`: 現行では必須だが、MVP では全習慣 24:00 固定のため個別期限としては使わない
+- `habit.isArchived`: 現行では boolean 管理だが、MVP 目標設計では過去日の分母固定に対応するため `archivedAt` で扱う
+- `daily_record.status (record_status)`: 現行では必須だが、MVP では達成時のみ記録を残すため不要とする
+
+この差分は、今回のドキュメント更新後に別途スキーマ変更で追従する前提とする。
+
 ## 2. ER 図
 
-Better Auth 向けの標準テーブルに、アプリ固有の習慣管理テーブルを加える。
+Better Auth 向けの標準テーブルに、アプリ固有の習慣管理テーブルを加える。以下の ER 図は、上記の MVP 目標設計に対応した将来形を示す。
 
 ```mermaid
 erDiagram
