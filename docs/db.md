@@ -175,8 +175,9 @@ Better Auth の標準テーブルを利用する。
 ### `daily_record` の整合性
 
 - `daily_record` には `userId` を持たせず、`daily_record -> habit -> userId` で所有者を特定する
-- これにより、他ユーザーの習慣に記録を紐づける不整合を防ぐ
+- 所有者情報は `habit` 経由で一元管理し、`daily_record` 側に `userId` を重複保持しないことで「`daily_record.userId` と `habit.userId` の不整合」が起こらないようにする
 - 達成記録の重複防止は `UNIQUE(habitId, date)` で保証する
+- 他ユーザーの習慣へ記録を付けない保証は、DB ではなくアプリケーション側の認可処理（ログインユーザーと `habit.userId` の照合）で担保する
 
 ### Activity Log の分母固定
 
