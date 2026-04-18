@@ -70,7 +70,7 @@
 | --- | --- | --- |
 | `id` | `string(uuid)` | 習慣のID |
 | `name` | `string` | タスク名 |
-| `emoji` | `string \| null` | アイコンとして表示する絵文字。未設定時は `null`。 |
+| `emoji` | `string \| null` | アイコンとして表示する絵文字。未設定時は `null`。現行スキーマ移行前は DB 上の空文字を `null` として正規化して返却する。 |
 | `currentStreak` | `number` | 現在の連続達成日数（補正済み） |
 | `maxStreak` | `number` | 過去最高の連続日数 |
 | `isCompletedToday` | `boolean` | 当日すでに達成操作を行い、完了済みかどうか |
