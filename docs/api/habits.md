@@ -4,7 +4,7 @@
 
 ## 共通エラーレスポンス
 
-レスポンス形式は `README.md` の統一フォーマット（`{ code, message }`）に従います。
+レスポンス形式は [`./README.md`](./README.md) の統一フォーマット（`{ code, message }`）に従います。
 
 全エンドポイント共通:
 - `401 Unauthorized` (`UNAUTHORIZED`): ログインセッションが存在しない、または無効な場合。
