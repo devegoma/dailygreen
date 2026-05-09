@@ -52,8 +52,8 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 | `emoji` | `string` | Yes | 未設定時は空文字 | リスト表示用アイコン |
 | `currentStreak` | `number` | Yes | 整数。作成直後は `0`。 | 現在の連続達成日数 |
 | `maxStreak` | `number` | Yes | 整数。作成直後は `0`。 | 過去最高の連続日数 |
-| `createdAt` | `string` | Yes | ISO 8601、タイムゾーン `+09:00`。 | 作成日時 |
-| `archivedAt` | `string \| null` | Yes | ISO 8601（`+09:00`）または `null`。 | アーカイブ日時。未アーカイブは `null` |
+| `createdAt` | `string` | Yes | RFC 3339 `date-time`、オフセット `+09:00`。 | 作成日時 |
+| `archivedAt` | `string \| null` | Yes | RFC 3339 `date-time`（`+09:00`）または `null`。 | アーカイブ日時。未アーカイブは `null` |
 
 レスポンス例
 ```jsonc
@@ -104,8 +104,8 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 | `emoji` | `string` | Yes | 未設定時は空文字。 | リスト表示用アイコン |
 | `currentStreak` | `number` | Yes | 整数。 | 現在の連続達成日数 |
 | `maxStreak` | `number` | Yes | 整数。 | 過去最高の連続日数 |
-| `createdAt` | `string` | Yes | ISO 8601、`+09:00`。 | 作成日時 |
-| `archivedAt` | `string \| null` | Yes | ISO 8601（`+09:00`）または `null`。冪等再実行時は既存値をそのまま返す。 | アーカイブ日時 |
+| `createdAt` | `string` | Yes | RFC 3339 `date-time`、オフセット `+09:00`。 | 作成日時 |
+| `archivedAt` | `string \| null` | Yes | RFC 3339 `date-time`（`+09:00`）または `null`。冪等再実行時は既存値をそのまま返す。 | アーカイブ日時 |
 
 レスポンス例
 ```jsonc
@@ -173,7 +173,7 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 | `id` | `string` | Yes | UUID。作成された `daily_record` の ID。 | 達成記録の ID |
 | `habitId` | `string` | Yes | UUID。URL の `:id` と一致。 | 対象習慣の ID |
 | `date` | `string` | Yes | `YYYY-MM-DD`。サーバー基準の「今日」（JST）。 | 達成した日付 |
-| `completedAt` | `string` | Yes | ISO 8601、`+09:00`。 | 達成操作を記録した日時 |
+| `completedAt` | `string` | Yes | RFC 3339 `date-time`、オフセット `+09:00`。 | 達成操作を記録した日時 |
 
 レスポンス例
 ```jsonc

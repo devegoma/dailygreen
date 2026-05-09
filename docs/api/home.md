@@ -89,7 +89,7 @@
 
 | フィールド | 型 | 必須 | 制約 | 説明 |
 | --- | --- | --- | --- | --- |
-| `date` | `string` | Yes | `YYYY-MM-DD`。 | その日の日付 |
+| `date` | `string` | Yes | RFC 3339 `full-date`（`YYYY-MM-DD`）。 | その日の日付 |
 | `completionRate` | `number \| null` | Yes | `0.0`〜`1.0`、または `null`。分母 `0` または当日未確定は `null`。 | その日の達成率（`達成数 / 対象習慣数`） |
 
 **`completionRate` の算出ルール**
