@@ -4,7 +4,7 @@
 
 ## 共通エラーレスポンス
 
-レスポンス形式は `README.md` の統一フォーマット（`{ code, message }`）に従います。
+レスポンス形式は [`./README.md`](./README.md) の統一フォーマットに従います。
 
 - `401 Unauthorized` (`UNAUTHORIZED`): ログインセッションが存在しない、または無効な場合。
 
@@ -42,6 +42,14 @@
 
 - `200 OK`: 成功。
 
+**(レスポンスボディ - JSON)**
+
+| フィールド | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| `habits` | `array` | Yes | 要素の形は下記「`habits` 配列」を参照。空配列可。 | 当日対象の習慣一覧（タスク名順） |
+| `activityLog` | `array` | Yes | 要素の形は下記「`activityLog` 配列」を参照。長さは直近 365 日分。 | 達成率の時系列（Activity Log 描画用） |
+
+レスポンス例
 ```jsonc
 {
   "habits": [
@@ -66,23 +74,23 @@
 
 当日の対象となっている習慣（アーカイブされていないもの）がタスク名順にソートされて返却されます。
 
-| フィールド名 | 型 | 説明 |
-| --- | --- | --- |
-| `id` | `string(uuid)` | 習慣のID |
-| `name` | `string` | タスク名 |
-| `emoji` | `string \| null` | アイコンとして表示する絵文字。未設定時は `null`。現行スキーマ移行前は DB 上の空文字を `null` として正規化して返却する。 |
-| `currentStreak` | `number` | 現在の連続達成日数（補正済み） |
-| `maxStreak` | `number` | 過去最高の連続日数 |
-| `isCompletedToday` | `boolean` | 当日すでに達成操作を行い、完了済みかどうか |
+| フィールド | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| `id` | `string` | Yes | UUID。 | 習慣の ID |
+| `name` | `string` | Yes | | タスク名 |
+| `emoji` | `string \| null` | Yes | 未設定時は `null`。DB 上の空文字は `null` に正規化。 | 表示用絵文字 |
+| `currentStreak` | `number` | Yes | 整数。Lazy Update により補正済み。 | 現在の連続達成日数 |
+| `maxStreak` | `number` | Yes | 整数。 | 過去最高の連続日数 |
+| `isCompletedToday` | `boolean` | Yes | | 当日すでに達成済みかどうか |
 
 **`activityLog` 配列**
 
 サーバーの現在日付（JST）を基準日として、**今日を含む直近365日分**の達成率データを、**日付の昇順（oldest → newest）** で返却します。GitHubの草のようなActivity Graphを描画するために使用します。なお、**今日の `completionRate` は翌日 `00:00 JST` に確定するまで `null`** とします。
 
-| フィールド名 | 型 | 説明 |
-| --- | --- | --- |
-| `date` | `string` | 日付（`YYYY-MM-DD` 形式） |
-| `completionRate` | `number \| null` | その日の達成率（0.0 〜 1.0）。`達成数 / 対象習慣数` で算出する。分母が `0`（対象習慣が1件もなかった日）の場合と、**当日分でまだ確定していない場合** は `null`。 |
+| フィールド | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| `date` | `string` | Yes | `YYYY-MM-DD`。 | その日の日付 |
+| `completionRate` | `number \| null` | Yes | `0.0`〜`1.0`、または `null`。分母 `0` または当日未確定は `null`。 | その日の達成率（`達成数 / 対象習慣数`） |
 
 **`completionRate` の算出ルール**
 

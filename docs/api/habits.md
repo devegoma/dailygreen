@@ -4,7 +4,7 @@
 
 ## 共通エラーレスポンス
 
-レスポンス形式は [`./README.md`](./README.md) の統一フォーマット（`{ code, message }`）に従います。
+レスポンス形式は [`./README.md`](./README.md) の統一フォーマットに従います。
 
 全エンドポイント共通:
 - `401 Unauthorized` (`UNAUTHORIZED`): ログインセッションが存在しない、または無効な場合。
@@ -42,8 +42,20 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 **正常系**
 
 - `201 Created`: 習慣の作成に成功。
-- レスポンス内の `emoji` は `string`。未設定時は空文字を返却する。
 
+**(レスポンスボディ - JSON)**
+
+| フィールド | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| `id` | `string` | Yes | UUID。 | 習慣の ID |
+| `name` | `string` | Yes | `trim` 済み。最大 50 文字。 | 習慣の名前（タスク名） |
+| `emoji` | `string` | Yes | 未設定時は空文字 | リスト表示用アイコン |
+| `currentStreak` | `number` | Yes | 整数。作成直後は `0`。 | 現在の連続達成日数 |
+| `maxStreak` | `number` | Yes | 整数。作成直後は `0`。 | 過去最高の連続日数 |
+| `createdAt` | `string` | Yes | ISO 8601、タイムゾーン `+09:00`。 | 作成日時 |
+| `archivedAt` | `string \| null` | Yes | ISO 8601（`+09:00`）または `null`。 | アーカイブ日時。未アーカイブは `null` |
+
+レスポンス例
 ```jsonc
 {
   "id": "uuid(省略)",
@@ -82,8 +94,20 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 **正常系**
 
 - `200 OK`: アーカイブ成功、またはすでにアーカイブ済み。
-- レスポンス内の `emoji` は `string`。未設定時は空文字を返却する。
 
+**(レスポンスボディ - JSON)**
+
+| フィールド | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| `id` | `string` | Yes | UUID。 | 習慣の ID |
+| `name` | `string` | Yes | `trim` 済み。 | 習慣の名前（タスク名） |
+| `emoji` | `string` | Yes | 未設定時は空文字。 | リスト表示用アイコン |
+| `currentStreak` | `number` | Yes | 整数。 | 現在の連続達成日数 |
+| `maxStreak` | `number` | Yes | 整数。 | 過去最高の連続日数 |
+| `createdAt` | `string` | Yes | ISO 8601、`+09:00`。 | 作成日時 |
+| `archivedAt` | `string \| null` | Yes | ISO 8601（`+09:00`）または `null`。冪等再実行時は既存値をそのまま返す。 | アーカイブ日時 |
+
+レスポンス例
 ```jsonc
 {
   "id": "uuid(省略)",
@@ -136,10 +160,22 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 
 `UNIQUE(habitId, date)` 制約違反によるDBエラーが発生した場合は、`409 Conflict`（`HABIT_ALREADY_COMPLETED_TODAY`）に正規化して返却する。
 
+#### レスポンス
+
 **正常系**
 
 - `201 Created`: 達成記録の作成に成功。
 
+**(レスポンスボディ - JSON)**
+
+| フィールド | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| `id` | `string` | Yes | UUID。作成された `daily_record` の ID。 | 達成記録の ID |
+| `habitId` | `string` | Yes | UUID。URL の `:id` と一致。 | 対象習慣の ID |
+| `date` | `string` | Yes | `YYYY-MM-DD`。サーバー基準の「今日」（JST）。 | 達成した日付 |
+| `completedAt` | `string` | Yes | ISO 8601、`+09:00`。 | 達成操作を記録した日時 |
+
+レスポンス例
 ```jsonc
 {
   "id": "uuid(省略)",
