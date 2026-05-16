@@ -33,11 +33,12 @@ services:
 
   reverse-proxy:
     image: "nginx:1.29.6"
-    ports: 
+    ports:
+      - "443:443"
       - "80:80"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/cert:/etc/nginx/cert
+      - ~/nginx/conf.d:/etc/nginx/conf.d
+      - ~/nginx/cert:/etc/nginx/cert
 
 volumes:
   postgres_data:
