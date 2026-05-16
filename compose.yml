@@ -31,6 +31,14 @@ services:
       db:
         condition: service_healthy
 
+  reverse-proxy:
+    image: "nginx:1.29.6"
+    ports: 
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/cert:/etc/nginx/cert
+
 volumes:
   postgres_data:
   web_node_modules:
