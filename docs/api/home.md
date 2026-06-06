@@ -33,7 +33,7 @@
 3. 手順 2 の集約結果を用いて、以下のいずれかに該当する習慣を「ストリーク切れ」と判定する。ただし `habit.currentStreak` がすでに `0` の場合はスキップ。
    - 直近達成日が `null`（`daily_record` が一件もない）かつ `currentStreak > 0` — 作成直後にストリークが付いている矛盾ケース
    - 直近達成日が存在するが、「昨日」より前の日付（昨日でも今日でもない過去）かつ `currentStreak > 0`
-4. 切れと判定された習慣に対し、DBの `habit` テーブルの `currentStreak` を `0` に一括 `UPDATE` する。
+4. ストリーク切れと判定された習慣に対し、DBの `habit` テーブルの `currentStreak` を `0` に一括 `UPDATE` する。
 5. 上記の更新処理が完了した後の正確な数値を、レスポンスの `habits` 配列に反映して返却する。
 
 #### レスポンス
@@ -78,7 +78,7 @@
 | --- | --- | --- | --- | --- |
 | `id` | `string` | Yes | UUID。 | 習慣の ID |
 | `name` | `string` | Yes | | タスク名 |
-| `emoji` | `string \| null` | Yes | 未設定時は `null`。DB 上の空文字は `null` に正規化。 | 表示用絵文字 |
+| `emoji` | `string` | Yes | 未設定時は空文字（`""`）。DB と同一値を返す。 | 表示用絵文字 |
 | `currentStreak` | `number` | Yes | 整数。Lazy Update により補正済み。 | 現在の連続達成日数 |
 | `maxStreak` | `number` | Yes | 整数。 | 過去最高の連続日数 |
 | `isCompletedToday` | `boolean` | Yes | | 当日すでに達成済みかどうか |

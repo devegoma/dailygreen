@@ -34,7 +34,7 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 - `name` が未指定、空文字、空白のみ、または50文字超過の場合は `400 Bad Request` を返す。
 - `name` は保存時に前後の空白を `trim` する。
 - `emoji` は未指定を許可する。指定する場合は、絵文字として表示する 1 つのグラフェムクラスタのみを受け付ける。
-- 現行 DB スキーマでは `habit.emoji` が `NOT NULL` のため、スキーマ移行までは未設定値を空文字で保持し、API では未設定として扱う。
+- DB 保存時・API 返却時ともに: 未設定は空文字（`""`）。`habit.emoji` は `NOT NULL` のため、`null` は返却しない。
 - 同名の習慣の登録は許可する（DB上のユニーク制約は設けない）。
 
 #### レスポンス
@@ -49,11 +49,11 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 | --- | --- | --- | --- | --- |
 | `id` | `string` | Yes | UUID。 | 習慣の ID |
 | `name` | `string` | Yes | `trim` 済み。最大 50 文字。 | 習慣の名前（タスク名） |
-| `emoji` | `string` | Yes | 未設定時は空文字 | リスト表示用アイコン |
+| `emoji` | `string` | Yes | 未設定時は空文字（`""`）。DB と同一値を返す。 | リスト表示用アイコン |
 | `currentStreak` | `number` | Yes | 整数。作成直後は `0`。 | 現在の連続達成日数 |
 | `maxStreak` | `number` | Yes | 整数。作成直後は `0`。 | 過去最高の連続日数 |
-| `createdAt` | `string` | Yes | RFC 3339 `date-time`、オフセット `+09:00`。 | 作成日時 |
-| `archivedAt` | `string \| null` | Yes | RFC 3339 `date-time`（`+09:00`）または `null`。 | アーカイブ日時。未アーカイブは `null` |
+| `createdAt` | `string` | Yes | RFC 3339 `date-time`。例では JST の `+09:00` を使用するが、同じ瞬間を表す `Z` による UTC 表記も許容する。 | 作成日時 |
+| `archivedAt` | `string \| null` | Yes | RFC 3339 `date-time` または `null`。形式は `createdAt` と同様。 | アーカイブ日時。未アーカイブは `null` |
 
 レスポンス例
 ```jsonc
@@ -101,11 +101,11 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 | --- | --- | --- | --- | --- |
 | `id` | `string` | Yes | UUID。 | 習慣の ID |
 | `name` | `string` | Yes | `trim` 済み。 | 習慣の名前（タスク名） |
-| `emoji` | `string` | Yes | 未設定時は空文字。 | リスト表示用アイコン |
+| `emoji` | `string` | Yes | 未設定時は空文字（`""`）。DB と同一値を返す。 | リスト表示用アイコン |
 | `currentStreak` | `number` | Yes | 整数。 | 現在の連続達成日数 |
 | `maxStreak` | `number` | Yes | 整数。 | 過去最高の連続日数 |
-| `createdAt` | `string` | Yes | RFC 3339 `date-time`、オフセット `+09:00`。 | 作成日時 |
-| `archivedAt` | `string \| null` | Yes | RFC 3339 `date-time`（`+09:00`）または `null`。冪等再実行時は既存値をそのまま返す。 | アーカイブ日時 |
+| `createdAt` | `string` | Yes | RFC 3339 `date-time`。例では JST の `+09:00` を使用するが、同じ瞬間を表す `Z` による UTC 表記も許容する。 | 作成日時 |
+| `archivedAt` | `string \| null` | Yes | RFC 3339 `date-time` または `null`。形式は `createdAt` と同様。冪等再実行時は既存値をそのまま返す。 | アーカイブ日時 |
 
 レスポンス例
 ```jsonc
@@ -173,7 +173,7 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 | `id` | `string` | Yes | UUID。作成された `daily_record` の ID。 | 達成記録の ID |
 | `habitId` | `string` | Yes | UUID。URL の `:id` と一致。 | 対象習慣の ID |
 | `date` | `string` | Yes | `YYYY-MM-DD`。サーバー基準の「今日」（JST）。 | 達成した日付 |
-| `completedAt` | `string` | Yes | RFC 3339 `date-time`、オフセット `+09:00`。 | 達成操作を記録した日時 |
+| `completedAt` | `string` | Yes | RFC 3339 `date-time`。例では JST の `+09:00` を使用するが、同じ瞬間を表す `Z` による UTC 表記も許容する。 | 達成操作を記録した日時 |
 
 レスポンス例
 ```jsonc
