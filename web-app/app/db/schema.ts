@@ -2,10 +2,8 @@ import {
 	boolean,
 	date,
 	integer,
-	pgEnum,
 	pgTable,
 	text,
-	time,
 	timestamp,
 	unique,
 	uuid,
@@ -114,11 +112,10 @@ export const habit = pgTable("habit", {
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
 	name: text("name").notNull(),
-	emoji: text("emoji").notNull(),
-	deadTime: time("deadTime").notNull(), // 'HH:mm:ss'
+	emoji: text("emoji").notNull().default(""),
 	currentStreak: integer("currentStreak").notNull().default(0),
 	maxStreak: integer("maxStreak").notNull().default(0),
-	isArchived: boolean("isArchived").notNull().default(false),
+	archivedAt: timestamp("archivedAt", { mode: "date", withTimezone: true }),
 	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
 		.notNull()
 		.defaultNow(),
@@ -126,9 +123,6 @@ export const habit = pgTable("habit", {
 		.notNull()
 		.defaultNow(),
 });
-
-// ステータス用の ENUM 定義
-export const recordStatusEnum = pgEnum("record_status", ["done", "missed"]);
 
 export const dailyRecord = pgTable(
 	"daily_record",
@@ -138,8 +132,10 @@ export const dailyRecord = pgTable(
 			.notNull()
 			.references(() => habit.id, { onDelete: "cascade" }),
 		date: date("date", { mode: "string" }).notNull(), // 'YYYY-MM-DD' として扱う
-		status: recordStatusEnum("status").notNull(),
-		completedAt: timestamp("completedAt", { mode: "date", withTimezone: true }),
+		completedAt: timestamp("completedAt", {
+			mode: "date",
+			withTimezone: true,
+		}).notNull(),
 	},
 	// 同一日に同じ習慣の記録が重複しないよう、複合ユニーク制約を設定
 	(table) => [unique("habit_date_unique").on(table.habitId, table.date)],
