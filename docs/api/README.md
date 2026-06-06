@@ -17,7 +17,7 @@ JSON 上の文字列は **[RFC 3339](https://datatracker.ietf.org/doc/html/rfc33
 
 | 用途 | RFC 3339 の構文名 | 形式の例 | 備考 |
 | --- | --- | --- | --- |
-| ある瞬間の日時（`createdAt` 等） | `date-time` | `2024-11-01T12:00:00+09:00` | RFC 3339 `date-time`。例では JST の `+09:00` を使用するが、同じ瞬間を表す `Z` による UTC 表記も許容する。 |
+| ある瞬間の日時（`createdAt` 等） | `date-time` | `2024-11-01T12:00:00+09:00` | RFC 3339 `date-time`。オフセットは JST の `+09:00` に統一する（`Z` による UTC 表記は使用しない）。 |
 | 暦日のみ（カレンダー上の 1 日） | `full-date` | `2024-11-17` | 日付の意味（いつの「その日」か）は [プロダクト定義書 `spec.md`](../spec.md) の **JST（Asia/Tokyo）固定** に従う。 |
 
 OpenAPI や JSON Schema の `format: date-time` は RFC 3339 の `date-time` に準拠する想定で解釈する。
