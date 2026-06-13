@@ -5,6 +5,7 @@
 ## 共通エラーレスポンス
 
 <!-- 該当するものだけ残す。エラーコードは ./README.md のエラーコード一覧に準拠。 -->
+<!-- MVP のバリデーションエラーは INVALID_REQUEST と message のみ。フィールド単位の詳細は定義しない。 -->
 
 全エンドポイント共通:
 - `401 Unauthorized` (`UNAUTHORIZED`): {条件}
@@ -72,9 +73,10 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 
 **異常系**
 
-<!-- エラーコードは ./README.md のエラーコード一覧に準拠。エラーボディは ./README.md の統一フォーマットに従う。フィールドを個別に説明する必要がある場合のみ、上記と同様の表を追加する。 -->
+<!-- エラーコードは ./README.md のエラーコード一覧に準拠。エラーボディは code と message の統一フォーマットに従い、MVP ではフィールド単位の詳細を追加しない。 -->
 - `400 Bad Request` (`INVALID_REQUEST`): {条件}
 - `409 Conflict` (`{ERROR_CODE}`): {条件}
+- `500 Internal Server Error` (`INTERNAL_SERVER_ERROR`): {条件}
 
 #### 冪等性
 

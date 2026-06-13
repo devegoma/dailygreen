@@ -22,6 +22,8 @@ JSON 上の文字列は **[RFC 3339](https://datatracker.ietf.org/doc/html/rfc33
 
 OpenAPI や JSON Schema の `format: date-time` は RFC 3339 の `date-time` に準拠する想定で解釈する。
 
+DB の `timestamptz` は絶対時刻として保存する。JST の日付境界判定と、API レスポンスをオフセット `+09:00` の文字列へ変換する処理はアプリケーション側で行う。
+
 ## エラーレスポンス形式
 
 すべてのAPIエラーは以下の統一フォーマットで返却します。
@@ -30,6 +32,8 @@ OpenAPI や JSON Schema の `format: date-time` は RFC 3339 の `date-time` に
 | --- | --- | --- | --- | --- |
 | `code` | `string` | Yes | 本書のエラーコード一覧に掲載される値。 | 機械可読なエラーコード。クライアント側での分岐に使用する。 |
 | `message` | `string` | Yes | | 人間向けのエラーメッセージ。デバッグや UI での表示用。 |
+
+MVP ではフィールド単位のバリデーションエラー配列や詳細オブジェクトは返さない。入力不正は `code: "INVALID_REQUEST"` と `message` だけで表現する。
 
 レスポンス例
 ```jsonc
@@ -46,8 +50,12 @@ OpenAPI や JSON Schema の `format: date-time` は RFC 3339 の `date-time` に
 | `UNAUTHORIZED` | `401` | 未ログイン、またはセッション切れ |
 | `HABIT_NOT_FOUND` | `404` | 習慣が見つからない（存在しない or 他ユーザーの所有） |
 | `INVALID_REQUEST` | `400` | リクエストの形式不正、バリデーション違反 |
-| `HABIT_ARCHIVED` | `409` | アーカイブ済みの習慣に対する操作 |
+| `HABIT_ARCHIVED` | `409` | complete など active habit を前提とする操作の対象がアーカイブ済み |
 | `HABIT_ALREADY_COMPLETED_TODAY` | `409` | 同日に同じ習慣を二重達成しようとした |
+| `HABIT_LIMIT_EXCEEDED` | `409` | active habit 上限 10 件、またはアーカイブ済みを含む habit 総数上限 1000 件を超える作成 |
+| `INTERNAL_SERVER_ERROR` | `500` | サーバー内部処理の失敗 |
+
+`HABIT_ARCHIVED` は active habit を前提とする操作にだけ使用する。`PATCH /api/habits/:id/archive` をアーカイブ済み habit に再実行した場合は冪等な成功として扱い、このエラーを返さない。
 
 
 ## API一覧
