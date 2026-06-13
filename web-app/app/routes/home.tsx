@@ -42,7 +42,7 @@ export default function Home() {
 				},
 				onError: () => {
 					setLoginError(
-						"ログインに失敗しました。PostgreSQL が起動しているか確認してください。",
+						"ログインに失敗しました。DB サーバーが起動しているか確認してください。",
 					);
 				},
 			},
