@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { oneTap } from "better-auth/plugins";
 import { db } from "../db/index.server";
 import * as schema from "../db/schema";
 
@@ -24,6 +25,7 @@ if (!googleClientSecret) {
 }
 
 export const auth = betterAuth({
+	plugins: [oneTap()],
 	database: drizzleAdapter(db, {
 		provider: "pg",
 		schema: {

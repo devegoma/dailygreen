@@ -1,8 +1,14 @@
+import { oneTapClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
+
 export const authClient = createAuthClient({
-	// ブラウザで動く前提なので baseURL は自動推論に任せる（省略）
+	plugins: [
+		oneTapClient({
+			clientId: googleClientId,
+		}),
+	],
 });
 
-// コンポーネントで使いやすいように hooks をエクスポート
-export const { signIn, signOut, useSession } = authClient;
+export const { signOut, useSession, oneTap } = authClient;

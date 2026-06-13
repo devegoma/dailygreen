@@ -1,4 +1,5 @@
-import { signIn, signOut, useSession } from "../lib/auth-client";
+import { useEffect, useRef, useState } from "react";
+import { oneTap, signOut, useSession } from "../lib/auth-client";
 import type { Route } from "./+types/home";
 
 export function meta(_meta: Route.MetaArgs) {
@@ -10,13 +11,43 @@ export function meta(_meta: Route.MetaArgs) {
 
 export default function Home() {
 	const { data: session, isPending } = useSession();
+	const buttonRef = useRef<HTMLDivElement>(null);
+	const [loginError, setLoginError] = useState<string | null>(null);
 
-	const handleLogin = async () => {
-		await signIn.social({
-			provider: "google",
-			callbackURL: "/",
+	useEffect(() => {
+		if (isPending || session || !buttonRef.current) {
+			return;
+		}
+
+		if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+			console.error("VITE_GOOGLE_CLIENT_ID is not set");
+			return;
+		}
+
+		void oneTap({
+			button: {
+				container: buttonRef.current,
+				config: {
+					type: "standard",
+					theme: "outline",
+					size: "large",
+					text: "signin_with",
+					locale: "ja",
+					width: 280,
+				},
+			},
+			fetchOptions: {
+				onSuccess: () => {
+					window.location.reload();
+				},
+				onError: () => {
+					setLoginError(
+						"ログインに失敗しました。DB サーバーが起動しているか確認してください。",
+					);
+				},
+			},
 		});
-	};
+	}, [session, isPending]);
 
 	const handleLogout = async () => {
 		await signOut({
@@ -60,21 +91,18 @@ export default function Home() {
 					<button
 						type="button"
 						onClick={handleLogout}
-						style={{ padding: "0.5rem 1rem", cursor: "pointer" }}
+						className="mt-2 inline-flex cursor-pointer items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 hover:shadow active:scale-[0.98] active:bg-gray-100"
 					>
 						ログアウト
 					</button>
 				</div>
 			) : (
 				<div>
-					<p>ログインしていません</p>
-					<button
-						type="button"
-						onClick={handleLogin}
-						style={{ padding: "0.5rem 1rem", cursor: "pointer" }}
-					>
-						Googleでログイン
-					</button>
+					<p className="mb-4 text-gray-600">ログインしていません</p>
+					{loginError ? (
+						<p className="mb-4 text-sm text-red-600">{loginError}</p>
+					) : null}
+					<div ref={buttonRef} />
 				</div>
 			)}
 		</div>
