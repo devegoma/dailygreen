@@ -30,7 +30,9 @@
 
 1. サーバーの現在時刻（JST `Asia/Tokyo` 固定）を基準に、「今日」および「昨日」の日付（`YYYY-MM-DD`）を算出する。
 2. 対象習慣群の `habitId` に対する直近の達成日（最大 `date`）を、`daily_record` テーブルの `GROUP BY habitId` 集約クエリで一括取得する。習慣ごとの個別クエリ（N+1）は避ける。
-3. 手順 2 の集約結果を用いて、直近達成日が「昨日」より前であり、かつ `habit.currentStreak > 0` の習慣を「ストリーク切れ」と判定する。直近達成日が今日または昨日の習慣と、`currentStreak = 0` の習慣は更新しない。
+3. 手順 2 の集約結果を用いて、`habit.currentStreak > 0` であり、かつ以下のいずれかに該当する習慣を「ストリーク切れ」と判定する。直近達成日が今日または昨日の習慣と、`currentStreak = 0` の習慣は更新しない。
+   - 直近達成日が `null`（`daily_record` が 1 件も存在しない）
+   - 直近達成日が「昨日」より前
 4. ストリーク切れと判定された習慣に対し、DBの `habit` テーブルの `currentStreak` を `0` に一括 `UPDATE` する。
 5. 上記の更新処理が完了した後の正確な数値を、レスポンスの `habits` 配列に反映して返却する。
 
@@ -110,15 +112,16 @@ Activity Log は表示時点で active な習慣だけを全日付の計算対�
 
 **Activity Log の色マッピング**
 
-UI は次の 5 段階を GitHub contribution graph 風の色へ対応させる。
+UI は `null` と達成率 `0` を緑の達成レベルとは別に扱い、正の達成率を GitHub contribution graph 風の緑 4 段階へ対応させる。
 
 | 条件 | 表示レベル |
 | --- | --- |
 | `completionRate === null` | 未確定または対象なしの色 |
 | `completionRate === 0` | 達成なしの色 |
-| `0 < completionRate <= 0.25` | 薄い緑 |
-| `0.25 < completionRate <= 0.50` | 中間の緑 |
-| `0.50 < completionRate <= 1.00` | 濃い緑 |
+| `0 < completionRate <= 0.25` | 緑 level 1 |
+| `0.25 < completionRate <= 0.50` | 緑 level 2 |
+| `0.50 < completionRate < 1.00` | 緑 level 3 |
+| `completionRate === 1.00` | 緑 level 4 |
 
 **異常系**
 

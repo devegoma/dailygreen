@@ -98,8 +98,9 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 
 #### 内部処理（実装者向け）
 
-- 同じ habit に対する archive と complete は、共通の排他・直列化機構で競合を制御する。
-- 2 つの処理が同時実行された場合は archive を優先する。観測可能な結果は「archive が先に成立し、その後の complete が `HABIT_ARCHIVED` で失敗した状態」とし、競合した complete の `daily_record` は作成しない。
+- 同じ habit に対する archive と complete は、共通の排他機構で直列化し、先に成立した処理を優先する。
+- archive が先に成立した場合、後続の complete は `HABIT_ARCHIVED` で失敗する。
+- complete が先に成立した場合、complete による `daily_record` の作成とストリーク更新が完了した後、この archive が成立する。
 - すでに `archivedAt IS NOT NULL` の場合は値を更新せず、現在の habit を返す。
 
 #### レスポンス
@@ -158,11 +159,11 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 
 #### 内部処理（実装者向け）
 
-以下の処理を **単一トランザクション** 内で実行する。同じ habit に対する archive と complete は共通の排他・直列化機構で競合を制御し、同時実行時は archive を優先する。競合した complete はロールバックし、`daily_record` を作成しない。
+以下の処理を **単一トランザクション** 内で実行する。同じ habit に対する archive と complete は共通の排他機構で直列化し、先に成立した処理を優先する。archive が先に成立している場合は complete を失敗させ、complete が先に成立した場合は達成記録とストリーク更新をコミットした後に archive の成立を許可する。
 
 1. サーバーの現在時刻（JST）から「今日」の日付（`YYYY-MM-DD`）を算出する。日付区間は `00:00 JST` を開始、翌日 `00:00 JST` を終了とする半開区間 `[D 00:00 JST, D+1日 00:00 JST)` で扱い、ちょうど `00:00 JST` の達成は新しい日の `daily_record.date` とする。
-2. トランザクションを開始し、archive と共通の直列化機構を通して対象の `habit` を取得する。
-3. 直列化後に `habit.archivedAt` を再確認する。`archivedAt != null`、または同時実行された archive がある場合はロールバックし、`409 Conflict`（`HABIT_ARCHIVED`）を返す。
+2. トランザクションを開始し、archive と共通の排他機構を通して対象の `habit` を取得する。
+3. 排他取得後に `habit.archivedAt` を再確認する。`archivedAt != null` ならロールバックし、`409 Conflict`（`HABIT_ARCHIVED`）を返す。complete が排他を先に取得した場合は、後続の archive を待機させたまま以降の処理を続行する。
 4. 対象習慣の `daily_record` テーブルから直近の達成日（最大 `date`）を取得する。
 5. 直近達成日に応じて `currentStreak` を決定する。
    - **直近達成日が「今日」** → ロールバックし、`409 Conflict`（`HABIT_ALREADY_COMPLETED_TODAY`）を返す。

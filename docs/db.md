@@ -195,7 +195,9 @@ Better Auth の標準テーブルを利用する。
 - 所有者情報は `habit` 経由で一元管理し、`daily_record` 側に `userId` を重複保持しないことで「`daily_record.userId` と `habit.userId` の不整合」が起こらないようにする
 - 達成記録の重複防止は `UNIQUE(habitId, date)` で保証する
 - 他ユーザーの習慣へ記録を付けない保証は、DB ではなくアプリケーション側の認可処理（ログインユーザーと `habit.userId` の照合）で担保する
-- 同じ habit に対する archive と complete は直列化し、競合時は archive を優先する。競合した complete のトランザクションはロールバックし、`daily_record` を残さない
+- 同じ habit に対する archive と complete は共通の排他機構で直列化し、先に成立した処理を優先する
+- archive が先に成立した場合、後続の complete はアーカイブ済み状態を検出してロールバックし、`daily_record` を残さない
+- complete が先に成立した場合、`daily_record` の INSERT と `currentStreak` / `maxStreak` の UPDATE をコミットした後、後続の archive が `archivedAt` を更新する
 
 ### Activity Log の集計
 
@@ -212,7 +214,7 @@ Activity Log は、表示時点で active な習慣だけを対象に都度集�
 
 - 習慣達成時に `currentStreak` を増やし、必要に応じて `maxStreak` を更新する
 - 未達成によるストリーク切れはバッチで反映しない
-- その代わり、ホーム画面取得前に直近の `daily_record.date` を確認し、期限切れで `currentStreak > 0` の習慣だけを `0` に更新する
+- その代わり、ホーム画面取得前に直近の `daily_record.date` を確認し、`currentStreak > 0` かつ直近達成日が `null` または「昨日」より前の習慣を `0` に更新する
 - Lazy Update はこの `0` リセットだけを行い、`daily_record` から連続日数を完全再計算して非ゼロ値へ補正する処理は行わない
 - ホーム画面には補正後の値を返す
 

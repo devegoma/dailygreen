@@ -59,7 +59,9 @@ Daily Green は、ログイン済みユーザーが毎日の習慣を管理し�
 - `Done(遅延)` のような遅延達成の概念は持たない
 - 未達成日は「記録がない」ことで表現し、未達成専用のレコードは作成しない
 - アーカイブ済み習慣への達成操作は `HABIT_ARCHIVED` で失敗する
-- 同じ習慣に対する archive と complete が同時実行された場合は archive を優先し、complete では `daily_record` を作成しない
+- 同じ習慣に対する archive と complete は共通の排他機構で直列化し、先に成立した処理を優先する
+- archive が先に成立した場合、後続の complete は `HABIT_ARCHIVED` で失敗し、`daily_record` を作成しない
+- complete が先に成立した場合、`daily_record` の作成と `currentStreak` / `maxStreak` の更新を完了した後、後続の archive が成立する
 
 ### 4.2 `daily_record` の扱い
 
@@ -77,6 +79,7 @@ Daily Green は、ログイン済みユーザーが毎日の習慣を管理し�
 - 未達成によるストリークのリセットは、定期バッチでは行わない
 - ホーム画面のデータ取得前に、そのユーザーのストリークの期限切れ判定を毎回実行する
 - この Lazy Update は、期限切れの `currentStreak` を `0` にリセットする処理だけを指す。`daily_record` 全履歴からストリークを完全再計算する処理ではない
+- `currentStreak > 0` であり、直近達成日が `null` または「昨日」より前の場合をリセット対象とする
 - Lazy Update に失敗した場合は補正前の値でホーム画面を返さず、リクエスト全体をエラーとする
 - ホーム画面には、補正後の `currentStreak` を表示する
 
@@ -109,7 +112,8 @@ Activity Log は、1 日単位の達成率を色で表現する。
 - 分母は、日付 D の対象習慣数とする
 - アーカイブ済み習慣は、アーカイブ日時にかかわらず過去日の分子・分母からも除外する。このため、archive 後に過去日の達成率と色が変わることを許容する
 - 過去日で対象習慣数が `0` の場合も `completionRate: null` とする。当日未確定の `null` と同じ値で表し、MVP の UI では理由を区別しない
-- 色は `null`、`0`、`0 < completionRate <= 0.25`、`0.25 < completionRate <= 0.50`、`0.50 < completionRate <= 1.00` を基準とする 5 段階へマッピングする。`null` は未確定または対象なしの色、`0` は達成なしの色、正の値は達成率が高いほど濃い緑とする
+- `null` は未確定または対象なし、`0` は達成なしとして、それぞれ緑の達成レベルとは別の色で表示する
+- 正の達成率は GitHub contribution graph 風の緑 4 段階へマッピングする。`0 < completionRate <= 0.25` を level 1、`0.25 < completionRate <= 0.50` を level 2、`0.50 < completionRate < 1.00` を level 3、`completionRate === 1.00` を level 4 とし、レベルが高いほど濃い緑とする
 
 ## 5. 画面上の挙動まとめ
 
