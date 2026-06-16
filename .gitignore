@@ -1,0 +1,15 @@
+# ER図プレビュー（ローカル用）
+scripts/
+
+# Cursor（デバッグログ等）
+.cursor/
+
+# JetBrains IDE
+.idea/
+*.iml
+
+# ローカル開発用 TLS 証明書
+nginx/cert/
+
+# pnpm キャッシュ（コンテナ内で生成されることがある）
+web-app/.pnpm-store/
