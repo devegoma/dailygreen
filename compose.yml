@@ -50,7 +50,8 @@ services:
 
 networks:
   dailygreen-network:
-    name: dailygreen-network
+    driver: bridge
+    
 
 volumes:
   postgres_data:
