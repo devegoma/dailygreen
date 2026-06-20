@@ -38,7 +38,7 @@ RUN pnpm install --prod --frozen-lockfile
 # 本番用（実行）ステージ
 FROM base AS runner
 ENV NODE_ENV=production
-COPY --from=build /app/build ./build
+COPY --from=build /app/.output ./.output
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=production-deps /app/node_modules ./node_modules

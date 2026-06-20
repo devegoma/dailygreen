@@ -5,9 +5,10 @@
 # pnpm（store-dir をプロジェクト内にした場合のローカルストア。容量・差分が大きくなりやすい）
 .pnpm-store/
 
-# React Router
+# React Router / TanStack Start build output
 /.react-router/
 /build/
+/.output/
 
 .biome_cache/
 

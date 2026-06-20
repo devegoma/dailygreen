@@ -1,8 +1,9 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { oneTap } from "better-auth/plugins";
-import { db } from "../db/index.server";
-import * as schema from "../db/schema";
+import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { db } from "~/db/index.server";
+import * as schema from "~/db/schema";
 
 const betterAuthSecret = process.env.BETTER_AUTH_SECRET;
 if (!betterAuthSecret) {
@@ -25,7 +26,7 @@ if (!googleClientSecret) {
 }
 
 export const auth = betterAuth({
-	plugins: [oneTap()],
+	plugins: [oneTap(), tanstackStartCookies()],
 	database: drizzleAdapter(db, {
 		provider: "pg",
 		schema: {

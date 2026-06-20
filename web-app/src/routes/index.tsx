@@ -1,15 +1,18 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { oneTap, signOut, useSession } from "../lib/auth-client";
-import type { Route } from "./+types/home";
+import { oneTap, signOut, useSession } from "~/lib/auth-client";
 
-export function meta(_meta: Route.MetaArgs) {
-	return [
-		{ title: "Daily Green" },
-		{ name: "description", content: "習慣化アプリ" },
-	];
-}
+export const Route = createFileRoute("/")({
+	head: () => ({
+		meta: [
+			{ title: "Daily Green" },
+			{ name: "description", content: "習慣化アプリ" },
+		],
+	}),
+	component: Home,
+});
 
-export default function Home() {
+function Home() {
 	const { data: session, isPending } = useSession();
 	const buttonRef = useRef<HTMLDivElement>(null);
 	const [loginError, setLoginError] = useState<string | null>(null);
