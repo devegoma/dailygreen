@@ -1,4 +1,4 @@
-📖 [React Router ドキュメント](https://reactrouter.com/)
+📖 [TanStack Start ドキュメント](https://tanstack.com/start/latest/docs/framework/react/overview)
 
 ## はじめに
 
@@ -15,7 +15,7 @@ pnpm run build
 
 ## データベース（Drizzle ORM）
 
-スキーマ: [`app/db/schema.ts`](app/db/schema.ts) · 設定: [`drizzle.config.ts`](drizzle.config.ts)（マイグレーション出力は `./drizzle`）
+スキーマ: [`src/db/schema.ts`](src/db/schema.ts) · 設定: [`drizzle.config.ts`](drizzle.config.ts)（マイグレーション出力は `./drizzle`）
 
 Kit を使うときは **`DATABASE_URL` が必要**。ホストから DB に触るときは **`localhost:5432`**、Compose 内の `web` からは **`db:5432`**（ルートの `compose.yml` 起動時は `web` 向け URL は compose が渡す）。
 
