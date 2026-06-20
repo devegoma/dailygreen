@@ -11,6 +11,7 @@
 /.output/
 
 .biome_cache/
+/.tmp-tests/
 
 # ツールキャッシュ（プロジェクト直下に生成されることがある）
 .vite/

@@ -10,11 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiHomeRouteImport } from './routes/api/home'
+import { Route as ApiHabitsRouteImport } from './routes/api/habits'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiHabitsHabitIdCompleteRouteImport } from './routes/api/habits/$habitId/complete'
+import { Route as ApiHabitsHabitIdArchiveRouteImport } from './routes/api/habits/$habitId/archive'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHomeRoute = ApiHomeRouteImport.update({
+  id: '/api/home',
+  path: '/api/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHabitsRoute = ApiHabitsRouteImport.update({
+  id: '/api/habits',
+  path: '/api/habits',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -22,30 +36,74 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHabitsHabitIdCompleteRoute =
+  ApiHabitsHabitIdCompleteRouteImport.update({
+    id: '/$habitId/complete',
+    path: '/$habitId/complete',
+    getParentRoute: () => ApiHabitsRoute,
+  } as any)
+const ApiHabitsHabitIdArchiveRoute = ApiHabitsHabitIdArchiveRouteImport.update({
+  id: '/$habitId/archive',
+  path: '/$habitId/archive',
+  getParentRoute: () => ApiHabitsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/habits': typeof ApiHabitsRouteWithChildren
+  '/api/home': typeof ApiHomeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
+  '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/habits': typeof ApiHabitsRouteWithChildren
+  '/api/home': typeof ApiHomeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
+  '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/habits': typeof ApiHabitsRouteWithChildren
+  '/api/home': typeof ApiHomeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
+  '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/api/habits'
+    | '/api/home'
+    | '/api/auth/$'
+    | '/api/habits/$habitId/archive'
+    | '/api/habits/$habitId/complete'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/auth/$'
-  id: '__root__' | '/' | '/api/auth/$'
+  to:
+    | '/'
+    | '/api/habits'
+    | '/api/home'
+    | '/api/auth/$'
+    | '/api/habits/$habitId/archive'
+    | '/api/habits/$habitId/complete'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/habits'
+    | '/api/home'
+    | '/api/auth/$'
+    | '/api/habits/$habitId/archive'
+    | '/api/habits/$habitId/complete'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiHabitsRoute: typeof ApiHabitsRouteWithChildren
+  ApiHomeRoute: typeof ApiHomeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -58,6 +116,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/home': {
+      id: '/api/home'
+      path: '/api/home'
+      fullPath: '/api/home'
+      preLoaderRoute: typeof ApiHomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/habits': {
+      id: '/api/habits'
+      path: '/api/habits'
+      fullPath: '/api/habits'
+      preLoaderRoute: typeof ApiHabitsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -65,11 +137,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/habits/$habitId/complete': {
+      id: '/api/habits/$habitId/complete'
+      path: '/$habitId/complete'
+      fullPath: '/api/habits/$habitId/complete'
+      preLoaderRoute: typeof ApiHabitsHabitIdCompleteRouteImport
+      parentRoute: typeof ApiHabitsRoute
+    }
+    '/api/habits/$habitId/archive': {
+      id: '/api/habits/$habitId/archive'
+      path: '/$habitId/archive'
+      fullPath: '/api/habits/$habitId/archive'
+      preLoaderRoute: typeof ApiHabitsHabitIdArchiveRouteImport
+      parentRoute: typeof ApiHabitsRoute
+    }
   }
 }
 
+interface ApiHabitsRouteChildren {
+  ApiHabitsHabitIdArchiveRoute: typeof ApiHabitsHabitIdArchiveRoute
+  ApiHabitsHabitIdCompleteRoute: typeof ApiHabitsHabitIdCompleteRoute
+}
+
+const ApiHabitsRouteChildren: ApiHabitsRouteChildren = {
+  ApiHabitsHabitIdArchiveRoute: ApiHabitsHabitIdArchiveRoute,
+  ApiHabitsHabitIdCompleteRoute: ApiHabitsHabitIdCompleteRoute,
+}
+
+const ApiHabitsRouteWithChildren = ApiHabitsRoute._addFileChildren(
+  ApiHabitsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiHabitsRoute: ApiHabitsRouteWithChildren,
+  ApiHomeRoute: ApiHomeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

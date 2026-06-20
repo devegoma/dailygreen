@@ -10,6 +10,7 @@
 		"build": "vite build",
 		"dev": "vite dev",
 		"start": "node --env-file-if-exists=.env .output/server/index.mjs",
+		"test": "node scripts/run-tests.mjs",
 		"typecheck": "tsc",
 		"check": "biome check --write .",
 		"check:ci": "biome check .",
