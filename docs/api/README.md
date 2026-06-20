@@ -50,7 +50,7 @@ MVP ではフィールド単位のバリデーションエラー配列や詳細�
 | `UNAUTHORIZED` | `401` | 未ログイン、またはセッション切れ |
 | `HABIT_NOT_FOUND` | `404` | 習慣が見つからない（存在しない or 他ユーザーの所有） |
 | `INVALID_REQUEST` | `400` | リクエストの形式不正、バリデーション違反 |
-| `HABIT_ARCHIVED` | `409` | complete など active habit を前提とする操作の対象がアーカイブ済み |
+| `HABIT_ARCHIVED` | `409` | update / complete など active habit を前提とする操作の対象がアーカイブ済み |
 | `HABIT_ALREADY_COMPLETED_TODAY` | `409` | 同日に同じ習慣を二重達成しようとした |
 | `HABIT_LIMIT_EXCEEDED` | `409` | active habit 上限 10 件、またはアーカイブ済みを含む habit 総数上限 1000 件を超える作成 |
 | `INTERNAL_SERVER_ERROR` | `500` | サーバー内部処理の失敗 |
@@ -66,5 +66,6 @@ MVP ではフィールド単位のバリデーションエラー配列や詳細�
   - `GET /api/home` - 習慣一覧とActivity Logの一括取得
 - [習慣管理・記録 API](./habits.md)
   - `POST /api/habits` - 習慣の作成
+  - `PATCH /api/habits/:id` - 習慣の名前・絵文字の更新
   - `PATCH /api/habits/:id/archive` - 習慣のアーカイブ
   - `POST /api/habits/:id/complete` - 今日のタスク（習慣）の完了記録
