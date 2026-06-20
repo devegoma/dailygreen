@@ -8,6 +8,13 @@
 			"when": 1772269933443,
 			"tag": "0000_regular_deathstrike",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1780735283984,
+			"tag": "0001_regular_inhumans",
+			"breakpoints": true
 		}
 	]
 }
