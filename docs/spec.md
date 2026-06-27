@@ -59,9 +59,10 @@ Daily Green は、ログイン済みユーザーが毎日の習慣を管理し�
 - `Done(遅延)` のような遅延達成の概念は持たない
 - 未達成日は「記録がない」ことで表現し、未達成専用のレコードは作成しない
 - アーカイブ済み習慣への達成操作は `HABIT_ARCHIVED` で失敗する
-- 同じ習慣に対する archive と complete は共通の排他機構で直列化し、先に成立した処理を優先する
-- archive が先に成立した場合、後続の complete は `HABIT_ARCHIVED` で失敗し、`daily_record` を作成しない
-- complete が先に成立した場合、`daily_record` の作成と `currentStreak` / `maxStreak` の更新を完了した後、後続の archive が成立する
+- 同じ習慣に対する update / archive / complete は共通の排他機構で直列化し、先に成立した処理を優先する
+- update が先に成立した場合、archive / complete は更新後の `name` / `emoji` を対象に処理する
+- archive が先に成立した場合、後続の update / complete は `HABIT_ARCHIVED` で失敗し、complete は `daily_record` を作成しない
+- complete が先に成立した場合、`daily_record` の作成と `currentStreak` / `maxStreak` の更新を完了した後、後続の update / archive が成立する
 
 ### 4.2 `daily_record` の扱い
 
