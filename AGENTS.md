@@ -16,6 +16,11 @@ pnpm run check:ci
 pnpm run typecheck
 ```
 
+## Pull Request Rules
+
+- Write pull request titles and descriptions in Japanese.
+- Do not add tool or agent prefixes such as `[codex]` to pull request titles.
+
 ## TanStack Guidance
 
 This project uses TanStack Start, TanStack Router, and TanStack Query.
