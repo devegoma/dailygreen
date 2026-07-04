@@ -10,6 +10,8 @@
 		"build": "vite build",
 		"dev": "vite dev",
 		"start": "node --env-file-if-exists=.env .output/server/index.mjs",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"typecheck": "tsc",
 		"check": "biome check --write .",
 		"check:ci": "biome check .",
@@ -39,6 +41,7 @@
 		"tailwindcss": "^4.1.13",
 		"typescript": "^5.9.2",
 		"vite": "^7.1.7",
-		"vite-tsconfig-paths": "^5.1.4"
+		"vite-tsconfig-paths": "^5.1.4",
+		"vitest": "^4.1.9"
 	}
 }
