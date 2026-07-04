@@ -107,6 +107,7 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 
 - リクエストボディは JSON object でなければならない。
 - `name` または `emoji` の少なくとも一方を含める。どちらも含まれない場合は `400 Bad Request` を返す。
+- `name` / `emoji` 以外のフィールドが含まれる場合は `400 Bad Request` を返す。
 - 省略されたフィールドは更新しない。
 - `name` が指定された場合、空文字、空白のみ、または50文字超過なら `400 Bad Request` を返す。
 - `name` は保存時に前後の空白を `trim` する。
@@ -123,7 +124,7 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 - 対象 habit の所有者確認は `userId` と `id` の組で行う。他ユーザーの habit は `HABIT_NOT_FOUND` として扱う。
 - 同じ habit に対する update / archive / complete は、共通の排他機構で直列化し、先に成立した処理を優先する。
 - 排他取得後に `habit.archivedAt` を再確認する。`archivedAt != null` なら更新せず、`409 Conflict`（`HABIT_ARCHIVED`）を返す。
-- DB 更新では `name` と `emoji` のみを更新し、ストリーク関連カラムを上書きしない。
+- DB 更新では `name` / `emoji` と `updatedAt` のみを更新し、ストリーク関連カラム、`createdAt`、`archivedAt` は上書きしない。
 - 更新後のレスポンスには、DBに保存された最新の habit を返す。
 
 #### レスポンス
@@ -159,7 +160,7 @@ ID指定系エンドポイント（`:id` を含むもの）のみ:
 
 **異常系**
 
-- `400 Bad Request` (`INVALID_REQUEST`): リクエストボディの形式不正、更新対象フィールド未指定、または制約違反。
+- `400 Bad Request` (`INVALID_REQUEST`): リクエストボディの形式不正、更新対象フィールド未指定、許可されていないフィールド、または制約違反。
 - `409 Conflict` (`HABIT_ARCHIVED`): 対象の習慣がアーカイブ済みの場合。
 
 ---
