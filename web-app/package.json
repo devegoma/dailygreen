@@ -6,6 +6,16 @@
 		"node": ">=20.19.0"
 	},
 	"packageManager": "pnpm@9.15.4",
+	"intent": {
+		"skills": [
+			"@tanstack/react-start",
+			"@tanstack/react-router",
+			"@tanstack/react-query",
+			"@tanstack/router-core",
+			"@tanstack/start-client-core",
+			"@tanstack/start-server-core"
+		]
+	},
 	"scripts": {
 		"build": "vite build",
 		"dev": "vite dev",
