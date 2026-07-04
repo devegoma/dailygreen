@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
 const appApiRoutes = [
 	{
@@ -33,38 +33,38 @@ const appApiRoutes = [
 	},
 ];
 
-export function testAppApiRouteFilesDeclareExpectedPathsAndMethods() {
-	for (const route of appApiRoutes) {
-		const source = readFileSync(resolve(process.cwd(), route.file), "utf8");
-		assert.ok(
-			source.includes(route.path),
-			`${route.file} declares ${route.path}`,
-		);
-		assert.ok(
-			source.includes(`${route.method}:`),
-			`${route.file} declares ${route.method} handler`,
-		);
-	}
-}
+describe("app API route smoke tests", () => {
+	it("declares the expected TanStack Start file route paths and methods", () => {
+		for (const route of appApiRoutes) {
+			const source = readFileSync(resolve(process.cwd(), route.file), "utf8");
 
-export function testAppApiRoutesAreRegisteredInGeneratedRouteTree() {
-	const source = readFileSync(
-		resolve(process.cwd(), "src/routeTree.gen.ts"),
-		"utf8",
-	);
+			expect(source, `${route.file} declares ${route.path}`).toContain(
+				route.path,
+			);
+			expect(
+				source,
+				`${route.file} declares ${route.method} handler`,
+			).toContain(`${route.method}:`);
+		}
+	});
 
-	for (const route of appApiRoutes) {
-		assert.ok(
-			source.includes(`${route.fullPath}:`),
-			`route tree registers ${route.fullPath}`,
+	it("registers app API routes in the generated route tree", () => {
+		const source = readFileSync(
+			resolve(process.cwd(), "src/routeTree.gen.ts"),
+			"utf8",
 		);
-		assert.ok(
-			source.includes(`fullPath: ${route.fullPath}`),
-			`route tree exposes fullPath ${route.fullPath}`,
-		);
-		assert.ok(
-			source.includes(`parentRoute: typeof ${route.parentRoute}`),
-			`route tree attaches ${route.fullPath} to ${route.parentRoute}`,
-		);
-	}
-}
+
+		for (const route of appApiRoutes) {
+			expect(source, `route tree registers ${route.fullPath}`).toContain(
+				`${route.fullPath}:`,
+			);
+			expect(source, `route tree exposes fullPath ${route.fullPath}`).toContain(
+				`fullPath: ${route.fullPath}`,
+			);
+			expect(
+				source,
+				`route tree attaches ${route.fullPath} to ${route.parentRoute}`,
+			).toContain(`parentRoute: typeof ${route.parentRoute}`);
+		}
+	});
+});
