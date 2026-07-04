@@ -34,36 +34,38 @@ const appApiRoutes = [
 ];
 
 describe("app API route smoke tests", () => {
-	it("declares the expected TanStack Start file route paths and methods", () => {
+	it("TanStack Start の file route path と HTTP method を宣言している", () => {
 		for (const route of appApiRoutes) {
 			const source = readFileSync(resolve(process.cwd(), route.file), "utf8");
 
-			expect(source, `${route.file} declares ${route.path}`).toContain(
+			expect(source, `${route.file} が ${route.path} を宣言している`).toContain(
 				route.path,
 			);
 			expect(
 				source,
-				`${route.file} declares ${route.method} handler`,
+				`${route.file} が ${route.method} handler を宣言している`,
 			).toContain(`${route.method}:`);
 		}
 	});
 
-	it("registers app API routes in the generated route tree", () => {
+	it("生成済み route tree に app API routes を登録している", () => {
 		const source = readFileSync(
 			resolve(process.cwd(), "src/routeTree.gen.ts"),
 			"utf8",
 		);
 
 		for (const route of appApiRoutes) {
-			expect(source, `route tree registers ${route.fullPath}`).toContain(
-				`${route.fullPath}:`,
-			);
-			expect(source, `route tree exposes fullPath ${route.fullPath}`).toContain(
-				`fullPath: ${route.fullPath}`,
-			);
 			expect(
 				source,
-				`route tree attaches ${route.fullPath} to ${route.parentRoute}`,
+				`route tree が ${route.fullPath} を登録している`,
+			).toContain(`${route.fullPath}:`);
+			expect(
+				source,
+				`route tree が fullPath ${route.fullPath} を公開している`,
+			).toContain(`fullPath: ${route.fullPath}`);
+			expect(
+				source,
+				`route tree が ${route.fullPath} を ${route.parentRoute} に接続している`,
 			).toContain(`parentRoute: typeof ${route.parentRoute}`);
 		}
 	});

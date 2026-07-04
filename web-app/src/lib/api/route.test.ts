@@ -3,7 +3,7 @@ import { ApiError } from "./errors";
 import { handleApiRequest } from "./route";
 
 describe("handleApiRequest", () => {
-	it("returns a unified 401 response for unauthenticated requests", async () => {
+	it("未認証リクエストでは統一形式の 401 レスポンスを返す", async () => {
 		const response = await handleApiRequest({
 			request: new Request("http://localhost/api/home"),
 			authenticate: async () => null,
@@ -17,7 +17,7 @@ describe("handleApiRequest", () => {
 		});
 	});
 
-	it("maps authenticated handler results to JSON responses", async () => {
+	it("認証済みユーザーの handler 結果を JSON レスポンスとして返す", async () => {
 		const response = await handleApiRequest({
 			request: new Request("http://localhost/api/habits", { method: "POST" }),
 			authenticate: async () => ({ id: "user_1" }),
@@ -29,7 +29,7 @@ describe("handleApiRequest", () => {
 		expect(await response.json()).toEqual({ userId: "user_1" });
 	});
 
-	it("maps ApiError exceptions to unified JSON responses", async () => {
+	it("ApiError 例外を統一形式の JSON レスポンスに変換する", async () => {
 		const response = await handleApiRequest({
 			request: new Request("http://localhost/api/habits"),
 			authenticate: async () => ({ id: "user_1" }),
