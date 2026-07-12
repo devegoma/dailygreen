@@ -15,6 +15,13 @@
 			"when": 1780735283984,
 			"tag": "0001_regular_inhumans",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1783836036871,
+			"tag": "0002_bright_mathemanic",
+			"breakpoints": true
 		}
 	]
 }

@@ -188,6 +188,7 @@ Better Auth の標準テーブルを利用する。
 - active habit（`archivedAt IS NULL`）はユーザーあたり最大 10 件とする
 - アーカイブ済みを含む habit 総数はユーザーあたり最大 1000 件とする
 - 上限判定と `habit` の INSERT は、同一ユーザーによる並行作成でも上限を超えないようトランザクション内で直列化する
+- 直列化には対象 `user` 行の `SELECT ... FOR UPDATE` を使用する。上限判定はロック取得後に行う
 
 ### `daily_record` の整合性
 
@@ -196,9 +197,11 @@ Better Auth の標準テーブルを利用する。
 - 達成記録の重複防止は `UNIQUE(habitId, date)` で保証する
 - 他ユーザーの習慣へ記録を付けない保証は、DB ではなくアプリケーション側の認可処理（ログインユーザーと `habit.userId` の照合）で担保する
 - 同じ habit に対する update / archive / complete は共通の排他機構で直列化し、先に成立した処理を優先する
+- 共通排他機構には、所有者条件を含めて取得した対象 `habit` 行の `SELECT ... FOR UPDATE` を使用する
 - update が先に成立した場合、archive / complete は更新後の `name` / `emoji` を対象に処理する
 - archive が先に成立した場合、後続の update / complete はアーカイブ済み状態を検出して失敗し、complete は `daily_record` を残さない
 - complete が先に成立した場合、`daily_record` の INSERT と `currentStreak` / `maxStreak` の UPDATE をコミットした後、後続の update / archive が成立する
+- `UNIQUE(habitId, date)` 違反は `HABIT_ALREADY_COMPLETED_TODAY`、所有者条件に一致しない取得結果は `HABIT_NOT_FOUND` へ変換する
 
 ### Activity Log の集計
 

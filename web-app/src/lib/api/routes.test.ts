@@ -4,6 +4,20 @@ import { describe, expect, it } from "vitest";
 
 const appApiRoutes = [
 	{
+		file: "src/routes/health/live.ts",
+		path: 'createFileRoute("/health/live")',
+		fullPath: "'/health/live'",
+		parentRoute: "rootRouteImport",
+		method: "GET",
+	},
+	{
+		file: "src/routes/health/ready.ts",
+		path: 'createFileRoute("/health/ready")',
+		fullPath: "'/health/ready'",
+		parentRoute: "rootRouteImport",
+		method: "GET",
+	},
+	{
 		file: "src/routes/api/home.ts",
 		path: 'createFileRoute("/api/home")',
 		fullPath: "'/api/home'",
@@ -18,17 +32,24 @@ const appApiRoutes = [
 		method: "POST",
 	},
 	{
+		file: "src/routes/api/habits/$habitId.ts",
+		path: 'createFileRoute("/api/habits/$habitId")',
+		fullPath: "'/api/habits/$habitId'",
+		parentRoute: "ApiHabitsRoute",
+		method: "PATCH",
+	},
+	{
 		file: "src/routes/api/habits/$habitId/archive.ts",
 		path: 'createFileRoute("/api/habits/$habitId/archive")',
 		fullPath: "'/api/habits/$habitId/archive'",
-		parentRoute: "ApiHabitsRoute",
+		parentRoute: "ApiHabitsHabitIdRoute",
 		method: "PATCH",
 	},
 	{
 		file: "src/routes/api/habits/$habitId/complete.ts",
 		path: 'createFileRoute("/api/habits/$habitId/complete")',
 		fullPath: "'/api/habits/$habitId/complete'",
-		parentRoute: "ApiHabitsRoute",
+		parentRoute: "ApiHabitsHabitIdRoute",
 		method: "POST",
 	},
 ];
