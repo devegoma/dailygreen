@@ -195,9 +195,10 @@ Better Auth の標準テーブルを利用する。
 - 所有者情報は `habit` 経由で一元管理し、`daily_record` 側に `userId` を重複保持しないことで「`daily_record.userId` と `habit.userId` の不整合」が起こらないようにする
 - 達成記録の重複防止は `UNIQUE(habitId, date)` で保証する
 - 他ユーザーの習慣へ記録を付けない保証は、DB ではなくアプリケーション側の認可処理（ログインユーザーと `habit.userId` の照合）で担保する
-- 同じ habit に対する archive と complete は共通の排他機構で直列化し、先に成立した処理を優先する
-- archive が先に成立した場合、後続の complete はアーカイブ済み状態を検出してロールバックし、`daily_record` を残さない
-- complete が先に成立した場合、`daily_record` の INSERT と `currentStreak` / `maxStreak` の UPDATE をコミットした後、後続の archive が `archivedAt` を更新する
+- 同じ habit に対する update / archive / complete は共通の排他機構で直列化し、先に成立した処理を優先する
+- update が先に成立した場合、archive / complete は更新後の `name` / `emoji` を対象に処理する
+- archive が先に成立した場合、後続の update / complete はアーカイブ済み状態を検出して失敗し、complete は `daily_record` を残さない
+- complete が先に成立した場合、`daily_record` の INSERT と `currentStreak` / `maxStreak` の UPDATE をコミットした後、後続の update / archive が成立する
 
 ### Activity Log の集計
 
