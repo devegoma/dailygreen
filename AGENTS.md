@@ -5,6 +5,7 @@
 - This repository uses `develop` as the default branch.
 - The main application lives under `web-app/`.
 - Use pnpm for Node.js package management.
+- Before editing code or tests, read `docs/coding-conventions.md`.
 - Before submitting changes, run the relevant checks from `web-app/`.
 
 ## Commands
@@ -12,8 +13,10 @@
 ```sh
 cd web-app
 pnpm install
+pnpm test
 pnpm run check:ci
 pnpm run typecheck
+pnpm run build
 ```
 
 ## Pull Request Rules
@@ -45,6 +48,7 @@ Typical areas where TanStack skills should be checked:
 
 - TanStack Start server functions, server routes, middleware, deployment, and request handling
 - TanStack Router file-based routing, route tree generation, params, search params, loaders, navigation, auth guards, and error/not-found handling
-- TanStack Query usage, query keys, caching, invalidation, mutations, and Router integration
+
+TanStack Query does not currently ship a package-local Intent skill. For Query-related changes, consult the official documentation and the installed package version instead of relying on model memory.
 
 Do not blindly apply Next.js, React Router, Remix, or older React Query patterns unless they are explicitly compatible with the installed TanStack packages.
