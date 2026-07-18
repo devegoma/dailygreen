@@ -35,3 +35,5 @@ jobs:
       - run: pnpm run check:ci
       - run: pnpm run typecheck
       - run: pnpm run build
+      - name: Build production Docker image
+        run: docker build --target runner --tag dailygreen:ci .

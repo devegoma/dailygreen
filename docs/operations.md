@@ -8,6 +8,12 @@
 - APIレスポンスには `x-request-id` を付与する。クライアント由来の値はUUID形式だけを受け入れる。APIログは method、pathname、user ID、status、duration、API error codeをJSONで標準出力へ記録する。想定外例外は固定メッセージと内部error IDだけを記録し、message、stack、cause、メールアドレス、OAuthトークンは記録しない
 - 監視では live/ready の失敗、5xx件数、p95レスポンスタイムを収集する
 
+## productionイメージの環境変数
+
+- production Dockerイメージのbuild時には、DB・認証・OAuthの環境変数やbuild argsを渡さない
+- 必須環境変数はコンテナ実行時に秘密管理基盤から注入し、サーバーモジュールの初期化時にValibotで検証する
+- CIでは環境変数をDocker buildへ引き渡さずに`runner` targetをbuildし、秘密値なしで成果物を生成できることを確認する
+
 ## PostgreSQLバックアップと復旧
 
 - 本番DBは日次で `pg_dump --format=custom` を取得し、DBとは別の暗号化ストレージへ保存する
