@@ -1,39 +1,41 @@
-import { z } from "zod";
+import * as v from "valibot";
 
-const nonEmpty = z.string().trim().min(1);
+const nonEmpty = v.pipe(v.string(), v.trim(), v.minLength(1));
 
-const serverEnvSchema = z
-	.object({
-		NODE_ENV: z
-			.enum(["development", "test", "production"])
-			.default("development"),
-		DATABASE_URL: z
-			.url()
-			.refine(
+const serverEnvSchema = v.pipe(
+	v.object({
+		NODE_ENV: v.optional(
+			v.picklist(["development", "test", "production"]),
+			"development",
+		),
+		DATABASE_URL: v.pipe(
+			v.string(),
+			v.url(),
+			v.check(
 				(value) =>
 					value.startsWith("postgres://") || value.startsWith("postgresql://"),
 				"DATABASE_URL は PostgreSQL URL で指定してください。",
 			),
-		BETTER_AUTH_SECRET: z.string().min(32),
-		BETTER_AUTH_URL: z.url(),
+		),
+		BETTER_AUTH_SECRET: v.pipe(v.string(), v.minLength(32)),
+		BETTER_AUTH_URL: v.pipe(v.string(), v.url()),
 		GOOGLE_CLIENT_ID: nonEmpty,
 		GOOGLE_CLIENT_SECRET: nonEmpty,
-		APP_VERSION: nonEmpty.default("development"),
-	})
-	.superRefine((env, context) => {
-		if (
-			env.NODE_ENV === "production" &&
-			!env.BETTER_AUTH_URL.startsWith("https://")
-		) {
-			context.addIssue({
-				code: "custom",
-				path: ["BETTER_AUTH_URL"],
-				message: "production では HTTPS URL が必要です。",
-			});
-		}
-	});
+		APP_VERSION: v.optional(nonEmpty, "development"),
+	}),
+	v.forward(
+		v.partialCheck(
+			[["NODE_ENV"], ["BETTER_AUTH_URL"]],
+			(env) =>
+				env.NODE_ENV !== "production" ||
+				env.BETTER_AUTH_URL.startsWith("https://"),
+			"production では HTTPS URL が必要です。",
+		),
+		["BETTER_AUTH_URL"],
+	),
+);
 
-export type ServerEnv = z.infer<typeof serverEnvSchema>;
+export type ServerEnv = v.InferOutput<typeof serverEnvSchema>;
 
 export function parseServerEnv(source: NodeJS.ProcessEnv): ServerEnv {
 	const viteSecretNames = Object.keys(source).filter(
@@ -47,14 +49,14 @@ export function parseServerEnv(source: NodeJS.ProcessEnv): ServerEnv {
 		);
 	}
 
-	const result = serverEnvSchema.safeParse(source);
+	const result = v.safeParse(serverEnvSchema, source);
 	if (!result.success) {
-		const details = result.error.issues
-			.map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+		const details = result.issues
+			.map((issue) => `${v.getDotPath(issue) ?? "(root)"}: ${issue.message}`)
 			.join("; ");
 		throw new Error(`環境変数が不正です: ${details}`);
 	}
-	return result.data;
+	return result.output;
 }
 
 export const env = parseServerEnv(process.env);
