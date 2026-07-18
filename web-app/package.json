@@ -36,7 +36,7 @@
 		"postgres": "^3.4.8",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
-		"zod": "4.3.6"
+		"valibot": "^1.4.2"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.15",

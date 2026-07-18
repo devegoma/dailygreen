@@ -24,7 +24,19 @@ const validEnv = {
 
 describe("parseServerEnv", () => {
 	it("有効なテスト環境変数を一元的に検証する", () => {
-		expect(parseServerEnv(validEnv).NODE_ENV).toBe("test");
+		expect(parseServerEnv(validEnv)).toMatchObject({
+			NODE_ENV: "test",
+			APP_VERSION: "development",
+		});
+	});
+
+	it("PostgreSQL以外のDATABASE_URLを拒否する", () => {
+		expect(() =>
+			parseServerEnv({
+				...validEnv,
+				DATABASE_URL: "https://example.com/database",
+			}),
+		).toThrow("PostgreSQL URL");
 	});
 
 	it("productionのHTTP認証URLを拒否する", () => {
