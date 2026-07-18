@@ -15,13 +15,38 @@ type HandleApiRequestOptions<TUser, TResult> = {
 	successStatus?: number;
 };
 
+const uuidPattern =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function resolveRequestId(request: Request): string {
+	const requestId = request.headers.get("x-request-id");
+	return requestId && uuidPattern.test(requestId)
+		? requestId
+		: crypto.randomUUID();
+}
+
+function withRequestId(response: Response, requestId: string): Response {
+	try {
+		const headers = new Headers(response.headers);
+		headers.set("x-request-id", requestId);
+
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers,
+		});
+	} catch {
+		return response;
+	}
+}
+
 export async function handleApiRequest<TUser, TResult>({
 	request,
 	authenticate,
 	handler,
 	successStatus = 200,
 }: HandleApiRequestOptions<TUser, TResult>): Promise<Response> {
-	const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+	const requestId = resolveRequestId(request);
 	const startedAt = performance.now();
 	let userId: string | undefined;
 	let caughtError: unknown;
@@ -46,7 +71,7 @@ export async function handleApiRequest<TUser, TResult>({
 		caughtError = error;
 		response = apiErrorResponse(error);
 	}
-	response.headers.set("x-request-id", requestId);
+	response = withRequestId(response, requestId);
 	writeApiLog({
 		requestId,
 		request,
