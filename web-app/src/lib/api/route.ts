@@ -1,4 +1,5 @@
 import { ApiError, apiErrorResponse, jsonResponse } from "./errors";
+import { writeApiLog } from "./logger.server";
 
 export type ApiRequestContext<TUser> = {
 	request: Request;
@@ -20,19 +21,39 @@ export async function handleApiRequest<TUser, TResult>({
 	handler,
 	successStatus = 200,
 }: HandleApiRequestOptions<TUser, TResult>): Promise<Response> {
+	const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+	const startedAt = performance.now();
+	let userId: string | undefined;
+	let caughtError: unknown;
+	let response: Response;
 	try {
 		const user = await authenticate(request);
 		if (!user) {
 			throw new ApiError("UNAUTHORIZED");
 		}
+		userId =
+			typeof user === "object" && user !== null && "id" in user
+				? String(user.id)
+				: undefined;
 
 		const result = await handler({ request, user });
 		if (result instanceof Response) {
-			return result;
+			response = result;
+		} else {
+			response = jsonResponse(result, { status: successStatus });
 		}
-
-		return jsonResponse(result, { status: successStatus });
 	} catch (error) {
-		return apiErrorResponse(error);
+		caughtError = error;
+		response = apiErrorResponse(error);
 	}
+	response.headers.set("x-request-id", requestId);
+	writeApiLog({
+		requestId,
+		request,
+		startedAt,
+		status: response.status,
+		userId,
+		error: caughtError,
+	});
+	return response;
 }

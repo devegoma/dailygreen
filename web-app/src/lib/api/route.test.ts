@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "./errors";
 import { handleApiRequest } from "./route";
 
@@ -43,5 +43,27 @@ describe("handleApiRequest", () => {
 			code: "INVALID_REQUEST",
 			message: "bad request",
 		});
+	});
+
+	it("想定外例外をrequest ID付き500レスポンスと構造化ログへ変換する", async () => {
+		const errorLog = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const response = await handleApiRequest({
+			request: new Request("http://localhost/api/habits", {
+				headers: { "x-request-id": "request-123" },
+			}),
+			authenticate: async () => ({ id: "user_1" }),
+			handler: async () => {
+				throw new Error("database unavailable");
+			},
+		});
+
+		expect(response.status).toBe(500);
+		expect(response.headers.get("x-request-id")).toBe("request-123");
+		expect(errorLog).toHaveBeenCalledWith(
+			expect.stringContaining('"requestId":"request-123"'),
+		);
+		errorLog.mockRestore();
 	});
 });

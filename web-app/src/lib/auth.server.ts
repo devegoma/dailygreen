@@ -4,26 +4,7 @@ import { oneTap } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { db } from "~/db/index.server";
 import * as schema from "~/db/schema";
-
-const betterAuthSecret = process.env.BETTER_AUTH_SECRET;
-if (!betterAuthSecret) {
-	throw new Error("BETTER_AUTH_SECRET is not set");
-}
-
-const betterAuthUrl = process.env.BETTER_AUTH_URL;
-if (!betterAuthUrl) {
-	throw new Error("BETTER_AUTH_URL is not set");
-}
-
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-if (!googleClientId) {
-	throw new Error("GOOGLE_CLIENT_ID is not set");
-}
-
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-if (!googleClientSecret) {
-	throw new Error("GOOGLE_CLIENT_SECRET is not set");
-}
+import { env } from "~/lib/env.server";
 
 export const auth = betterAuth({
 	plugins: [oneTap(), tanstackStartCookies()],
@@ -33,12 +14,15 @@ export const auth = betterAuth({
 			...schema,
 		},
 	}),
-	baseURL: betterAuthUrl,
-	secret: betterAuthSecret,
+	baseURL: env.BETTER_AUTH_URL,
+	secret: env.BETTER_AUTH_SECRET,
+	account: {
+		encryptOAuthTokens: true,
+	},
 	socialProviders: {
 		google: {
-			clientId: googleClientId,
-			clientSecret: googleClientSecret,
+			clientId: env.GOOGLE_CLIENT_ID,
+			clientSecret: env.GOOGLE_CLIENT_SECRET,
 		},
 	},
 	user: {
