@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as HealthReadyRouteImport } from './routes/health/ready'
+import { Route as HealthLiveRouteImport } from './routes/health/live'
 import { Route as ApiHomeRouteImport } from './routes/api/home'
 import { Route as ApiHabitsRouteImport } from './routes/api/habits'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -19,6 +21,16 @@ import { Route as ApiHabitsHabitIdArchiveRouteImport } from './routes/api/habits
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthReadyRoute = HealthReadyRouteImport.update({
+  id: '/health/ready',
+  path: '/health/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthLiveRoute = HealthLiveRouteImport.update({
+  id: '/health/live',
+  path: '/health/live',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHomeRoute = ApiHomeRouteImport.update({
@@ -52,6 +64,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/habits': typeof ApiHabitsRouteWithChildren
   '/api/home': typeof ApiHomeRoute
+  '/health/live': typeof HealthLiveRoute
+  '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
   '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
@@ -60,6 +74,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/habits': typeof ApiHabitsRouteWithChildren
   '/api/home': typeof ApiHomeRoute
+  '/health/live': typeof HealthLiveRoute
+  '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
   '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
@@ -69,6 +85,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/habits': typeof ApiHabitsRouteWithChildren
   '/api/home': typeof ApiHomeRoute
+  '/health/live': typeof HealthLiveRoute
+  '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
   '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
@@ -79,6 +97,8 @@ export interface FileRouteTypes {
     | '/'
     | '/api/habits'
     | '/api/home'
+    | '/health/live'
+    | '/health/ready'
     | '/api/auth/$'
     | '/api/habits/$habitId/archive'
     | '/api/habits/$habitId/complete'
@@ -87,6 +107,8 @@ export interface FileRouteTypes {
     | '/'
     | '/api/habits'
     | '/api/home'
+    | '/health/live'
+    | '/health/ready'
     | '/api/auth/$'
     | '/api/habits/$habitId/archive'
     | '/api/habits/$habitId/complete'
@@ -95,6 +117,8 @@ export interface FileRouteTypes {
     | '/'
     | '/api/habits'
     | '/api/home'
+    | '/health/live'
+    | '/health/ready'
     | '/api/auth/$'
     | '/api/habits/$habitId/archive'
     | '/api/habits/$habitId/complete'
@@ -104,6 +128,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHabitsRoute: typeof ApiHabitsRouteWithChildren
   ApiHomeRoute: typeof ApiHomeRoute
+  HealthLiveRoute: typeof HealthLiveRoute
+  HealthReadyRoute: typeof HealthReadyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -114,6 +140,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health/ready': {
+      id: '/health/ready'
+      path: '/health/ready'
+      fullPath: '/health/ready'
+      preLoaderRoute: typeof HealthReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health/live': {
+      id: '/health/live'
+      path: '/health/live'
+      fullPath: '/health/live'
+      preLoaderRoute: typeof HealthLiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/home': {
@@ -172,6 +212,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHabitsRoute: ApiHabitsRouteWithChildren,
   ApiHomeRoute: ApiHomeRoute,
+  HealthLiveRoute: HealthLiveRoute,
+  HealthReadyRoute: HealthReadyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

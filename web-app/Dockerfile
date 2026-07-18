@@ -6,7 +6,8 @@ RUN mkdir -p /etc/nginx/cert
 
 # ベースイメージ
 FROM node:20.19-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+ARG PNPM_VERSION=9.15.4
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 WORKDIR /app
 
 # 依存関係のインストール（開発用も含む）
@@ -38,8 +39,11 @@ RUN pnpm install --prod --frozen-lockfile
 # 本番用（実行）ステージ
 FROM base AS runner
 ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 dailygreen && adduser --system --uid 1001 --ingroup dailygreen dailygreen
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=production-deps /app/node_modules ./node_modules
+RUN chown -R dailygreen:dailygreen /app
+USER dailygreen
 CMD ["pnpm", "run", "start"]
