@@ -23,3 +23,9 @@
 - Google APIを追加利用しない間は追加scopeやoffline accessを要求しない
 - `BETTER_AUTH_SECRET` は32文字以上とし、環境ごとに分離して秘密管理基盤から注入する
 - 鍵ローテーション前に使用中の Better Auth バージョンの複数鍵対応を確認し、旧鍵で復号できる移行期間を設ける。単一鍵を即時交換すると既存暗号化トークンとセッションを利用できなくなるため、手順未検証の交換は行わない
+
+## 依存関係更新
+
+- npm依存とGitHub ActionsはDependabotで月次更新する
+- patch/minorはグループ化し、majorとNitro betaの更新は個別PRでbuild・テストを確認する
+- Dependency graphを有効化できた後にdependency reviewをCIへ追加し、required checkとして設定する
