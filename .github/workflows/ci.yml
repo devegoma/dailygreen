@@ -2,6 +2,19 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: web-app
 
 env:
   NODE_ENV: test
@@ -12,28 +25,88 @@ env:
   GOOGLE_CLIENT_SECRET: test-google-client-secret
 
 jobs:
-  check:
-    name: Test, Lint, Typecheck and Build
+  lint-and-typecheck:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web-app
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          # packageManager フィールド（web-app/package.json）からバージョンを取得
           package_json_file: web-app/package.json
           run_install: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: "pnpm"
+          node-version: 20.19.0
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check:ci
+      - run: pnpm run typecheck
+
+  unit-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
           cache-dependency-path: web-app/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
-      - run: pnpm run check:ci
-      - run: pnpm run typecheck
+
+  migration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: dailygreen_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U user -d dailygreen_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run db:check
+      - run: pnpm run db:generate && git diff --exit-code -- drizzle
+      - run: pnpm run db:migrate
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - name: Build production Docker image
         run: docker build --target runner --tag dailygreen:ci .
