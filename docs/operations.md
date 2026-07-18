@@ -5,7 +5,7 @@
 - `GET /health/live`: プロセスがHTTP応答できることを確認し、`status` と `APP_VERSION` を返す
 - `GET /health/ready`: DB接続と Drizzle マイグレーション管理テーブルを確認する。未適用マイグレーションやアプリケーションテーブルとのスキーマ整合性までは保証しない。準備未完了時は `503` を返す
 - デプロイ時に commit SHA またはイメージタグを `APP_VERSION` として渡す
-- APIレスポンスには `x-request-id` を付与する。クライアント由来の値はUUID形式だけを受け入れる。APIログは method、pathname、user ID、status、duration、API error codeをJSONで標準出力へ記録する。想定外例外は固定メッセージと内部error IDだけを記録し、message、stack、cause、メールアドレス、OAuthトークンは記録しない
+- APIレスポンスには `x-request-id` を付与する。クライアント由来の値はUUID形式だけを受け入れる。APIログは method、pathname、user ID、status、duration、API error codeをJSONで標準出力へ記録する。想定外例外はallowlist検証済みのname・codeと、message行を除外したstack frameを最大10件・各300文字まで記録する。message、cause、リクエストbody、Cookie、Authorizationヘッダー、メールアドレス、OAuthトークンは記録せず、問い合わせとの照合にはrequest IDを使用する
 - 監視では live/ready の失敗、5xx件数、p95レスポンスタイムを収集する
 
 ## productionイメージの環境変数

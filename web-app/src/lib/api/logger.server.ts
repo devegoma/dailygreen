@@ -9,6 +9,37 @@ type ApiLogInput = {
 	error?: unknown;
 };
 
+const identifierPattern = /^[A-Za-z0-9_.:-]{1,64}$/;
+const stackFramePattern = /^at [A-Za-z0-9_.$/:()<>[\]\\ -]+$/;
+const maxStackFrames = 10;
+const maxStackFrameLength = 300;
+
+function safeIdentifier(value: unknown): string | undefined {
+	return typeof value === "string" && identifierPattern.test(value)
+		? value
+		: undefined;
+}
+
+function safeStackFrames(error: Error): string[] | undefined {
+	const messageLines = new Set(
+		error.message.split(/\r?\n/).map((line) => line.trim()),
+	);
+	const frames = error.stack
+		?.split(/\r?\n/)
+		.slice(1)
+		.map((line) => line.trim())
+		.filter(
+			(line) =>
+				line.startsWith("at ") &&
+				!messageLines.has(line) &&
+				stackFramePattern.test(line.slice(0, maxStackFrameLength)),
+		)
+		.slice(0, maxStackFrames)
+		.map((line) => line.slice(0, maxStackFrameLength));
+
+	return frames && frames.length > 0 ? frames : undefined;
+}
+
 function serializeError(error: unknown): Record<string, unknown> | undefined {
 	if (error === undefined) return undefined;
 	if (error instanceof ApiError) {
@@ -18,11 +49,18 @@ function serializeError(error: unknown): Record<string, unknown> | undefined {
 			status: error.status,
 		};
 	}
+	if (error instanceof Error) {
+		return {
+			type: "unexpected_error",
+			name: safeIdentifier(error.name) ?? "Error",
+			code: safeIdentifier((error as Error & { code?: unknown }).code),
+			stackFrames: safeStackFrames(error),
+		};
+	}
 
 	return {
 		type: "unexpected_error",
-		message: "Unexpected error",
-		errorId: crypto.randomUUID(),
+		name: "UnknownThrownValue",
 	};
 }
 

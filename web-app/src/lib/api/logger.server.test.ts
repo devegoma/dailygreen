@@ -9,7 +9,7 @@ const baseInput = {
 };
 
 describe("writeApiLog", () => {
-	it("想定外例外の機密情報・stack・causeをログへ記録しない", () => {
+	it("想定外例外の機密情報を除外し、検証済みの識別子とstack frameを記録する", () => {
 		const errorLog = vi
 			.spyOn(console, "error")
 			.mockImplementation(() => undefined);
@@ -18,20 +18,86 @@ describe("writeApiLog", () => {
 			value: 1n,
 		};
 		cause.self = cause;
+		const error = new Error("user@example.com\nat secret-access-token", {
+			cause,
+		}) as Error & { code: string };
+		error.name = "PostgresError";
+		error.code = "ECONNREFUSED";
 
 		writeApiLog({
 			...baseInput,
 			status: 500,
-			error: new Error("user@example.com", { cause }),
+			error,
 		});
 
 		const message = String(errorLog.mock.calls[0]?.[0]);
 		expect(message).not.toContain("user@example.com");
 		expect(message).not.toContain("secret-access-token");
+		expect(JSON.parse(message).error).toMatchObject({
+			type: "unexpected_error",
+			name: "PostgresError",
+			code: "ECONNREFUSED",
+		});
+		expect(JSON.parse(message).error.stackFrames).toEqual(
+			expect.arrayContaining([expect.stringContaining("logger.server.test")]),
+		);
+		errorLog.mockRestore();
+	});
+
+	it("stack frameを10件・各300文字に制限する", () => {
+		const errorLog = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const error = new Error("secret-message");
+		error.stack = [
+			"Error: secret-message",
+			...Array.from(
+				{ length: 12 },
+				(_, index) =>
+					`    at handler${index} (/app/.output/server/chunks/routes.mjs:${index + 1}:1${"0".repeat(320)})`,
+			),
+		].join("\n");
+
+		writeApiLog({ ...baseInput, status: 500, error });
+
+		const message = String(errorLog.mock.calls[0]?.[0]);
+		const stackFrames = JSON.parse(message).error.stackFrames as string[];
+		expect(message).not.toContain("secret-message");
+		expect(stackFrames).toHaveLength(10);
+		expect(stackFrames.every((frame) => frame.length <= 300)).toBe(true);
+		errorLog.mockRestore();
+	});
+
+	it("不正な例外名とコードをログへ記録しない", () => {
+		const errorLog = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const error = new Error("hidden") as Error & { code: string };
+		error.name = "Invalid Error Name";
+		error.code = "secret/value";
+
+		writeApiLog({ ...baseInput, status: 500, error });
+
+		const serializedError = JSON.parse(
+			String(errorLog.mock.calls[0]?.[0]),
+		).error;
+		expect(serializedError.name).toBe("Error");
+		expect(serializedError).not.toHaveProperty("code");
+		errorLog.mockRestore();
+	});
+
+	it("Error以外のthrow値は固定の例外名で記録する", () => {
+		const errorLog = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+
+		writeApiLog({ ...baseInput, status: 500, error: "secret-value" });
+
+		const message = String(errorLog.mock.calls[0]?.[0]);
+		expect(message).not.toContain("secret-value");
 		expect(JSON.parse(message).error).toEqual({
 			type: "unexpected_error",
-			message: "Unexpected error",
-			errorId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+			name: "UnknownThrownValue",
 		});
 		errorLog.mockRestore();
 	});
