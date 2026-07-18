@@ -140,25 +140,3 @@ export const dailyRecord = pgTable(
 	// 同一日に同じ習慣の記録が重複しないよう、複合ユニーク制約を設定
 	(table) => [unique("habit_date_unique").on(table.habitId, table.date)],
 );
-
-export const shareLink = pgTable("share_link", {
-	id: text("id").primaryKey(), // ランダムな短縮文字列 (例: a1b2c3d4) をアプリ側で生成して入れる
-	userId: text("userId")
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
-	isActive: boolean("isActive").notNull().default(true),
-	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
-		.notNull()
-		.defaultNow(),
-});
-
-export const pushSubscription = pgTable("push_subscription", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	userId: text("userId")
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
-	token: text("token").notNull().unique(), // デバイストークンの重複防止
-	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
-		.notNull()
-		.defaultNow(),
-});
