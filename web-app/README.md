@@ -2,7 +2,7 @@
 
 ## はじめに
 
-- Node.js 20.19.0 以上 · pnpm
+- Node.js 26 · pnpm
 
 ```bash
 pnpm install

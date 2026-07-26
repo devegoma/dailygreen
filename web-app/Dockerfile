@@ -5,9 +5,9 @@ FROM nginx:1.29.6
 RUN mkdir -p /etc/nginx/cert
 
 # ベースイメージ
-FROM node:20.19-alpine AS base
+FROM node:26-alpine AS base
 ARG PNPM_VERSION=9.15.4
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN npm install --global pnpm@${PNPM_VERSION}
 WORKDIR /app
 
 # 依存関係のインストール（開発用も含む）
