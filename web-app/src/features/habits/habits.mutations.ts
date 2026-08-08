@@ -83,12 +83,14 @@ function useStaleStateErrorReset(
  */
 function useStaleStateSynchronization() {
 	const [isSynchronized, setIsSynchronized] = useState(false);
+	const [isSynchronizing, setIsSynchronizing] = useState(false);
 	const synchronizedRef = useRef(false);
 	const sequenceRef = useRef(0);
 	const beginSynchronization = useCallback(() => {
 		sequenceRef.current += 1;
 		synchronizedRef.current = false;
 		setIsSynchronized(false);
+		setIsSynchronizing(true);
 		return sequenceRef.current;
 	}, []);
 	const completeSynchronization = useCallback(
@@ -96,6 +98,7 @@ function useStaleStateSynchronization() {
 			if (sequence === sequenceRef.current) {
 				synchronizedRef.current = synchronized;
 				setIsSynchronized(synchronized);
+				setIsSynchronizing(false);
 			}
 		},
 		[],
@@ -104,15 +107,36 @@ function useStaleStateSynchronization() {
 		sequenceRef.current += 1;
 		synchronizedRef.current = false;
 		setIsSynchronized(false);
+		setIsSynchronizing(false);
 	}, []);
 
 	return {
 		isSynchronized,
+		isSynchronizing,
 		synchronizedRef,
 		beginSynchronization,
 		completeSynchronization,
 		clearSynchronization,
 	};
+}
+
+function synchronizeStaleStateError(
+	queryClient: QueryClient,
+	error: unknown,
+	onUnauthorized: (() => void | Promise<void>) | undefined,
+	staleStateSynchronization: ReturnType<typeof useStaleStateSynchronization>,
+): void {
+	if (!isStaleStateError(error)) {
+		void synchronizeMutationError(queryClient, error, onUnauthorized);
+		return;
+	}
+
+	const sequence = staleStateSynchronization.beginSynchronization();
+	void synchronizeMutationError(queryClient, error, onUnauthorized).then(
+		(synchronized) => {
+			staleStateSynchronization.completeSynchronization(sequence, synchronized);
+		},
+	);
 }
 
 async function synchronizeMutationError(
@@ -205,17 +229,12 @@ export function useUpdateHabitMutation(
 		},
 		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
-			const sequence = staleStateSynchronization.beginSynchronization();
-			void synchronizeMutationError(
+			synchronizeStaleStateError(
 				queryClient,
 				error,
 				options.onUnauthorized,
-			).then((synchronized) => {
-				staleStateSynchronization.completeSynchronization(
-					sequence,
-					synchronized,
-				);
-			});
+				staleStateSynchronization,
+			);
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
@@ -228,6 +247,7 @@ export function useUpdateHabitMutation(
 		...mutation,
 		resetStaleStateError,
 		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
+		isStaleStateSynchronizing: staleStateSynchronization.isSynchronizing,
 	};
 }
 
@@ -245,17 +265,12 @@ export function useArchiveHabitMutation(
 		},
 		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
-			const sequence = staleStateSynchronization.beginSynchronization();
-			void synchronizeMutationError(
+			synchronizeStaleStateError(
 				queryClient,
 				error,
 				options.onUnauthorized,
-			).then((synchronized) => {
-				staleStateSynchronization.completeSynchronization(
-					sequence,
-					synchronized,
-				);
-			});
+				staleStateSynchronization,
+			);
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
@@ -268,6 +283,7 @@ export function useArchiveHabitMutation(
 		...mutation,
 		resetStaleStateError,
 		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
+		isStaleStateSynchronizing: staleStateSynchronization.isSynchronizing,
 	};
 }
 
@@ -300,17 +316,12 @@ export function useCompleteHabitMutation(
 			}
 		},
 		onError: (error) => {
-			const sequence = staleStateSynchronization.beginSynchronization();
-			void synchronizeMutationError(
+			synchronizeStaleStateError(
 				queryClient,
 				error,
 				options.onUnauthorized,
-			).then((synchronized) => {
-				staleStateSynchronization.completeSynchronization(
-					sequence,
-					synchronized,
-				);
-			});
+				staleStateSynchronization,
+			);
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
@@ -323,5 +334,6 @@ export function useCompleteHabitMutation(
 		...mutation,
 		resetStaleStateError,
 		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
+		isStaleStateSynchronizing: staleStateSynchronization.isSynchronizing,
 	};
 }

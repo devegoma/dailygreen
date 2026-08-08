@@ -273,6 +273,17 @@ describe("TodaySummary と HabitList", () => {
 			"この習慣は本日すでに達成済みです",
 		);
 		await vi.waitFor(() => expect(homeRequestCount).toBe(2));
+		const synchronizingButton = screen.getByRole("button", {
+			name: "読書を最新状態を確認しています",
+		});
+		expect(synchronizingButton).toBeDisabled();
+		expect(synchronizingButton).toHaveAttribute("aria-busy", "true");
+		await user.click(synchronizingButton);
+		expect(
+			fetchMock.mock.calls.filter(
+				([path]) => path === "/api/habits/reading/complete",
+			),
+		).toHaveLength(1);
 		synchronization.resolve(
 			jsonResponse({
 				...initialHome,
@@ -289,6 +300,68 @@ describe("TodaySummary と HabitList", () => {
 		expect(
 			screen.getByRole("button", { name: "読書を達成済み" }),
 		).toBeDisabled();
+	});
+
+	it("stale-state 再同期GETが失敗するとalertを維持し、再試行を許可する", async () => {
+		const user = userEvent.setup();
+		const initialHome = makeHomeData();
+		const synchronization = deferred<Response>();
+		let homeRequestCount = 0;
+		let completeRequestCount = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					return homeRequestCount === 1
+						? Promise.resolve(jsonResponse(initialHome))
+						: synchronization.promise;
+				}
+				completeRequestCount += 1;
+				return Promise.resolve(
+					completeRequestCount === 1
+						? jsonResponse(
+								{
+									code: "HABIT_ALREADY_COMPLETED_TODAY",
+									message: "達成済みです。",
+								},
+								409,
+							)
+						: jsonResponse(completeResponse("reading")),
+				);
+			}),
+		);
+		const queryClient = createQueryClient();
+		render(<HomeHabitList />, { wrapper: wrapper(queryClient) });
+		await screen.findByText("1 / 3 完了");
+
+		await user.click(screen.getByRole("button", { name: "読書を達成する" }));
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			"この習慣は本日すでに達成済みです",
+		);
+		await vi.waitFor(() => expect(homeRequestCount).toBe(2));
+		expect(
+			screen.getByRole("button", {
+				name: "読書を最新状態を確認しています",
+			}),
+		).toBeDisabled();
+
+		synchronization.resolve(jsonResponse({ message: "failed" }, 400));
+		const retryButton = await screen.findByRole("button", {
+			name: "読書を達成する",
+		});
+		expect(retryButton).toBeEnabled();
+		expect(retryButton).not.toHaveAttribute("aria-busy");
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"この習慣は本日すでに達成済みです",
+		);
+
+		await user.click(retryButton);
+		expect(
+			fetchMock.mock.calls.filter(
+				([path]) => path === "/api/habits/reading/complete",
+			),
+		).toHaveLength(2);
 	});
 });
 

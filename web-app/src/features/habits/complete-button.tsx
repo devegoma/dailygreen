@@ -42,7 +42,11 @@ export function CompleteButton({ habit, onUnauthorized }: CompleteButtonProps) {
 	const isHabitMutationPending = useIsHabitMutationPending(habit.id);
 	const submitInFlight = useRef(false);
 	const errorMessage = getCompleteHabitErrorMessage(mutation.error);
-	const { isStaleStateSynchronized, resetStaleStateError } = mutation;
+	const {
+		isStaleStateSynchronized,
+		isStaleStateSynchronizing,
+		resetStaleStateError,
+	} = mutation;
 
 	useEffect(() => {
 		if (isStaleStateSynchronized) {
@@ -54,6 +58,7 @@ export function CompleteButton({ habit, onUnauthorized }: CompleteButtonProps) {
 		if (
 			habit.isCompletedToday ||
 			isHabitMutationPending ||
+			isStaleStateSynchronizing ||
 			submitInFlight.current
 		) {
 			return;
@@ -68,23 +73,30 @@ export function CompleteButton({ habit, onUnauthorized }: CompleteButtonProps) {
 	};
 
 	const isCompleting = mutation.isPending;
-	const isDisabled = habit.isCompletedToday || isHabitMutationPending;
+	const isDisabled =
+		habit.isCompletedToday ||
+		isHabitMutationPending ||
+		isStaleStateSynchronizing;
 	const label = habit.isCompletedToday
 		? "✓ 達成済み"
 		: isCompleting
 			? "達成しています…"
-			: "達成する";
+			: isStaleStateSynchronizing
+				? "状態を確認しています…"
+				: "達成する";
 
 	return (
 		<div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
 			<button
-				aria-busy={isCompleting || undefined}
+				aria-busy={isCompleting || isStaleStateSynchronizing || undefined}
 				aria-label={`${habit.name}を${
 					isCompleting
 						? "達成しています"
-						: habit.isCompletedToday
-							? "達成済み"
-							: "達成する"
+						: isStaleStateSynchronizing
+							? "最新状態を確認しています"
+							: habit.isCompletedToday
+								? "達成済み"
+								: "達成する"
 				}`}
 				className="inline-flex w-full cursor-pointer items-center justify-center rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-100 disabled:text-emerald-900 sm:w-auto"
 				disabled={isDisabled}
