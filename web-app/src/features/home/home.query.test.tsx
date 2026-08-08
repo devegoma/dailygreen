@@ -38,7 +38,7 @@ describe("homeQueryOptions", () => {
 		expect(options.retry(0, new ApiClientError("offline"))).toBe(true);
 	});
 
-	it("401時にcacheを破棄してsession再確認callbackを呼ぶ", async () => {
+	it("401をobserverへ渡してからcacheを破棄し、session再確認callbackを呼ぶ", async () => {
 		const queryClient = createQueryClient();
 		const onUnauthorized = vi.fn();
 		vi.stubGlobal(
@@ -51,16 +51,19 @@ describe("homeQueryOptions", () => {
 			),
 		);
 
-		renderHook(
+		const { result } = renderHook(
 			() => useHomeQuery({ enabled: true, userId: "user-a", onUnauthorized }),
 			{ wrapper: wrapper(queryClient) },
 		);
 
+		await waitFor(() =>
+			expect(result.current.error).toMatchObject({ status: 401 }),
+		);
 		await waitFor(() => expect(onUnauthorized).toHaveBeenCalledTimes(1));
 		expect(queryClient.getQueryData(homeQueryKey)).toBeUndefined();
 	});
 
-	it("401時にsession callbackが失敗しても元のApiClientErrorを保持してretryしない", async () => {
+	it("401時にsession callbackが失敗してもhookは元のApiClientErrorを保持してretryしない", async () => {
 		const queryClient = createQueryClient();
 		const onUnauthorized = vi
 			.fn()
@@ -75,16 +78,27 @@ describe("homeQueryOptions", () => {
 			),
 		);
 
-		await expect(
-			queryClient.fetchQuery(
-				homeQueryOptions({ enabled: true, onUnauthorized }),
-			),
-		).rejects.toMatchObject({
+		const { result } = renderHook(
+			() => useHomeQuery({ enabled: true, userId: "user-a", onUnauthorized }),
+			{ wrapper: wrapper(queryClient) },
+		);
+
+		await waitFor(() =>
+			expect(result.current.error).toMatchObject({
+				name: "ApiClientError",
+				status: 401,
+				code: "UNAUTHORIZED",
+			}),
+		);
+		await waitFor(() => expect(onUnauthorized).toHaveBeenCalledTimes(1));
+		await expect(onUnauthorized.mock.results[0]?.value).rejects.toThrow(
+			"session failed",
+		);
+		expect(result.current.error).toMatchObject({
 			name: "ApiClientError",
 			status: 401,
 			code: "UNAUTHORIZED",
 		});
-		expect(onUnauthorized).toHaveBeenCalledTimes(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 

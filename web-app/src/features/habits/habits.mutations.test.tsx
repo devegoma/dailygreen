@@ -54,7 +54,7 @@ describe("habit mutations", () => {
 		expect(refetchQueries).toHaveBeenCalledTimes(3);
 	});
 
-	it("completeはin-flight home queryをcancelしてから対象habitの3フィールドだけを更新する", async () => {
+	it("complete後に先行したstale GETが解決しても達成結果を上書きしない", async () => {
 		const queryClient = createQueryClient();
 		const original = structuredClone(homeData);
 		queryClient.setQueryData(homeQueryKey, original);
@@ -62,23 +62,20 @@ describe("habit mutations", () => {
 			queryKey: homeQueryKey,
 			refetchType: "none",
 		});
-		let homeRequestAborted = false;
+		let resolveStaleHome: ((response: Response) => void) | undefined;
 		vi.stubGlobal(
 			"fetch",
-			fetchMock.mockImplementation((path: string, init?: RequestInit) => {
+			fetchMock.mockImplementation((path: string) => {
 				if (path === "/api/home") {
-					return new Promise<Response>((_resolve, reject) => {
-						init?.signal?.addEventListener("abort", () => {
-							homeRequestAborted = true;
-							reject(new DOMException("Aborted", "AbortError"));
-						});
+					return new Promise<Response>((resolve) => {
+						resolveStaleHome = resolve;
 					});
 				}
 				return Promise.resolve(jsonResponse(completeResponse));
 			}),
 		);
 		const inFlightHome = queryClient.fetchQuery(
-			homeQueryOptions({ enabled: true }),
+			homeQueryOptions({ enabled: true }, queryClient),
 		);
 		void inFlightHome.catch(() => undefined);
 		await waitFor(() =>
@@ -89,8 +86,8 @@ describe("habit mutations", () => {
 		});
 
 		await result.current.mutateAsync();
-
-		expect(homeRequestAborted).toBe(true);
+		resolveStaleHome?.(jsonResponse(original));
+		await inFlightHome.catch(() => undefined);
 		const updated = queryClient.getQueryData<HomeDataResponse>(homeQueryKey);
 		expect(updated?.habits).toEqual([
 			{
@@ -104,7 +101,42 @@ describe("habit mutations", () => {
 		expect(updated?.activityLog).toBe(original.activityLog);
 	});
 
-	it("complete中に別操作が開始したhome refetchをcancelせず最終server stateを反映する", async () => {
+	it("complete単独成功は対象3フィールドだけを更新し、追加GETを行わない", async () => {
+		const queryClient = createQueryClient();
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					return Promise.resolve(jsonResponse(homeData));
+				}
+				return Promise.resolve(jsonResponse(completeResponse));
+			}),
+		);
+		const home = renderHook(
+			() => useHomeQuery({ enabled: true, userId: "user-a" }),
+			{ wrapper: wrapper(queryClient) },
+		);
+		const complete = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		await waitFor(() => expect(home.result.current.data).toEqual(homeData));
+
+		await complete.result.current.mutateAsync();
+
+		expect(
+			fetchMock.mock.calls.filter(([path]) => path === "/api/home"),
+		).toHaveLength(1);
+		await waitFor(() =>
+			expect(home.result.current.data?.habits[0]).toEqual({
+				...homeData.habits[0],
+				isCompletedToday: true,
+				currentStreak: 2,
+				maxStreak: 4,
+			}),
+		);
+	});
+
+	it("先行mutationのrefetch中にcompleteしても、complete成功後の再同期で最終server stateを反映する", async () => {
 		const queryClient = createQueryClient();
 		const finalHome = {
 			...homeData,
@@ -127,7 +159,7 @@ describe("habit mutations", () => {
 			],
 		};
 		let resolveComplete: ((response: Response) => void) | undefined;
-		let resolveRefetch: ((response: Response) => void) | undefined;
+		let resolveFinalRefetch: ((response: Response) => void) | undefined;
 		let refetchAborted = false;
 		let homeRequestCount = 0;
 		vi.stubGlobal(
@@ -138,12 +170,16 @@ describe("habit mutations", () => {
 					if (homeRequestCount === 1) {
 						return Promise.resolve(jsonResponse(homeData));
 					}
-					return new Promise<Response>((resolve, reject) => {
-						resolveRefetch = resolve;
-						init?.signal?.addEventListener("abort", () => {
-							refetchAborted = true;
-							reject(new DOMException("Aborted", "AbortError"));
+					if (homeRequestCount === 2) {
+						return new Promise<Response>((_resolve, reject) => {
+							init?.signal?.addEventListener("abort", () => {
+								refetchAborted = true;
+								reject(new DOMException("Aborted", "AbortError"));
+							});
 						});
+					}
+					return new Promise<Response>((resolve) => {
+						resolveFinalRefetch = resolve;
 					});
 				}
 				if (path === "/api/habits/habit-1/complete") {
@@ -174,12 +210,14 @@ describe("habit mutations", () => {
 			name: "散歩",
 			emoji: "🚶",
 		});
-		await waitFor(() => expect(resolveRefetch).toBeTypeOf("function"));
+		await waitFor(() => expect(homeRequestCount).toBe(2));
+		expect(refetchAborted).toBe(false);
 		resolveComplete?.(jsonResponse(completeResponse));
 		await waitFor(() => expect(complete.result.current.isSuccess).toBe(true));
 
-		expect(refetchAborted).toBe(false);
-		resolveRefetch?.(jsonResponse(finalHome));
+		await waitFor(() => expect(homeRequestCount).toBe(3));
+		expect(refetchAborted).toBe(true);
+		resolveFinalRefetch?.(jsonResponse(finalHome));
 		await createExecution;
 		await waitFor(() => expect(home.result.current.data).toEqual(finalHome));
 	});
@@ -285,6 +323,147 @@ describe("habit mutations", () => {
 		let reset = false;
 		act(() => {
 			reset = result.current.resetStaleStateError();
+		});
+		expect(reset).toBe(false);
+	});
+
+	it("stale-state error後に同期GETがcancelされた場合はerrorをreset可能にしない", async () => {
+		const queryClient = createQueryClient();
+		let homeRequestCount = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string, init?: RequestInit) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					if (homeRequestCount === 1) {
+						return Promise.resolve(jsonResponse(homeData));
+					}
+					return new Promise<Response>((_resolve, reject) => {
+						init?.signal?.addEventListener("abort", () =>
+							reject(new DOMException("Aborted", "AbortError")),
+						);
+					});
+				}
+				return Promise.resolve(
+					jsonResponse(
+						{
+							code: "HABIT_ALREADY_COMPLETED_TODAY",
+							message: "達成済みです。",
+						},
+						409,
+					),
+				);
+			}),
+		);
+		renderHook(() => useHomeQuery({ enabled: true, userId: "user-a" }), {
+			wrapper: wrapper(queryClient),
+		});
+		const { result } = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(1));
+
+		await expect(result.current.mutateAsync()).rejects.toMatchObject({
+			code: "HABIT_ALREADY_COMPLETED_TODAY",
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(2));
+		await queryClient.cancelQueries({ queryKey: homeQueryKey });
+		await waitFor(() =>
+			expect(result.current.error).toMatchObject({
+				code: "HABIT_ALREADY_COMPLETED_TODAY",
+			}),
+		);
+
+		let reset = false;
+		act(() => {
+			reset = result.current.resetStaleStateError();
+		});
+		expect(reset).toBe(false);
+	});
+
+	it("stale同期GET中のcomplete patchで古いGETが不採用でもerrorをreset可能にしない", async () => {
+		const queryClient = createQueryClient();
+		let homeRequestCount = 0;
+		let completeRequestCount = 0;
+		let resolveStaleHome: ((response: Response) => void) | undefined;
+		let resolveFinalHome: ((response: Response) => void) | undefined;
+		let staleHomeAborted = false;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string, init?: RequestInit) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					if (homeRequestCount === 1) {
+						return Promise.resolve(jsonResponse(homeData));
+					}
+					if (homeRequestCount === 2) {
+						return new Promise<Response>((resolve) => {
+							resolveStaleHome = resolve;
+							init?.signal?.addEventListener("abort", () => {
+								staleHomeAborted = true;
+							});
+						});
+					}
+					return new Promise<Response>((resolve) => {
+						resolveFinalHome = resolve;
+					});
+				}
+				completeRequestCount += 1;
+				return Promise.resolve(
+					completeRequestCount === 1
+						? jsonResponse(
+								{
+									code: "HABIT_ALREADY_COMPLETED_TODAY",
+									message: "達成済みです。",
+								},
+								409,
+							)
+						: jsonResponse(completeResponse),
+				);
+			}),
+		);
+		renderHook(() => useHomeQuery({ enabled: true, userId: "user-a" }), {
+			wrapper: wrapper(queryClient),
+		});
+		const stale = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		const successful = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(1));
+
+		await expect(stale.result.current.mutateAsync()).rejects.toMatchObject({
+			code: "HABIT_ALREADY_COMPLETED_TODAY",
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(2));
+		await successful.result.current.mutateAsync();
+		await waitFor(() => expect(homeRequestCount).toBe(3));
+		expect(staleHomeAborted).toBe(true);
+		resolveStaleHome?.(jsonResponse(homeData));
+		resolveFinalHome?.(
+			jsonResponse({
+				...homeData,
+				habits: [
+					{
+						...homeData.habits[0],
+						isCompletedToday: true,
+						currentStreak: 2,
+						maxStreak: 4,
+					},
+					...homeData.habits.slice(1),
+				],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(stale.result.current.error).toMatchObject({
+				code: "HABIT_ALREADY_COMPLETED_TODAY",
+			}),
+		);
+		let reset = false;
+		act(() => {
+			reset = stale.result.current.resetStaleStateError();
 		});
 		expect(reset).toBe(false);
 	});

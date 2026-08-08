@@ -10,6 +10,7 @@ import {
 	clearHomeCache,
 	homeQueryKey,
 	invalidateAndRefetchHome,
+	preventStaleHomeResponses,
 } from "~/features/home/home.query";
 import { ApiClientError } from "~/lib/api/client";
 import {
@@ -126,6 +127,16 @@ function applyCompletedHabit(
 	});
 }
 
+function hasInvalidatedHomeRefetch(queryClient: QueryClient): boolean {
+	return queryClient
+		.getQueryCache()
+		.findAll({ queryKey: homeQueryKey, exact: true })
+		.some(
+			(query) =>
+				query.state.isInvalidated && query.state.fetchStatus === "fetching",
+		);
+}
+
 export function useCreateHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
@@ -208,11 +219,20 @@ export function useCompleteHabitMutation(
 	const mutation = useMutation({
 		mutationKey: habitMutationKey(habitId, "complete"),
 		mutationFn: () => completeHabitRequest(habitId),
-		onMutate: () => queryClient.cancelQueries({ queryKey: homeQueryKey }),
-		onSuccess: (response) => {
-			// onMutate で完了前の GET は停止済み。ここで再度 cancel すると、
-			// complete 中に別操作が開始した後発の server refetch を止めてしまう。
+		onMutate: () => ({
+			refetchAfterComplete: hasInvalidatedHomeRefetch(queryClient),
+		}),
+		onSuccess: (response, _variables, context) => {
+			const refetchAfterComplete =
+				context?.refetchAfterComplete || hasInvalidatedHomeRefetch(queryClient);
+			// 完了前に始まった GET は、完了レスポンスによる patch を上書きできない。
+			preventStaleHomeResponses(queryClient);
 			applyCompletedHabit(queryClient, response);
+			// create / edit / archive の再取得が完了操作と競合した場合だけ、最終
+			// server state を取り直す。通常のcomplete成功では追加GETを行わない。
+			if (refetchAfterComplete) {
+				void invalidateAndRefetchHome(queryClient);
+			}
 		},
 		onError: (error) => {
 			staleStateSynchronized.current = false;

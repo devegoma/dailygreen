@@ -30,7 +30,7 @@ export class ApiClientError extends Error {
 }
 
 function isApiErrorCode(value: unknown): value is ApiErrorCode {
-	return typeof value === "string" && value in apiErrorStatuses;
+	return typeof value === "string" && Object.hasOwn(apiErrorStatuses, value);
 }
 
 function isApiErrorBody(

@@ -67,6 +67,23 @@ describe("requestJson", () => {
 		});
 	});
 
+	it("prototype由来のcodeはAPIエラーcodeとして受理せずfallbackへ正規化する", async () => {
+		for (const code of ["toString", "constructor"]) {
+			vi.stubGlobal(
+				"fetch",
+				fetchMock.mockResolvedValueOnce(
+					jsonResponse({ code, message: "偽のエラーです。" }, 500),
+				),
+			);
+
+			await expect(requestJson("/api/home")).rejects.toMatchObject({
+				status: 500,
+				code: null,
+				message: "サーバー内部でエラーが発生しました。",
+			});
+		}
+	});
+
 	it("network errorをApiClientErrorへ正規化する", async () => {
 		vi.stubGlobal(
 			"fetch",
