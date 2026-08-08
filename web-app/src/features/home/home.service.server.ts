@@ -7,25 +7,13 @@ import {
 	getJstDateContext,
 	getJstDateStart,
 } from "~/lib/api/date";
+import type { HomeDataResponse } from "./home.contract";
+
+export type { HomeDataResponse } from "./home.contract";
 
 export type GetHomeDataInput = {
 	user: AuthenticatedUser;
 	now?: Date;
-};
-
-export type HomeDataResponse = {
-	habits: Array<{
-		id: string;
-		name: string;
-		emoji: string;
-		currentStreak: number;
-		maxStreak: number;
-		isCompletedToday: boolean;
-	}>;
-	activityLog: Array<{
-		date: string;
-		completionRate: number | null;
-	}>;
 };
 
 const ACTIVITY_LOG_DAYS = 365;

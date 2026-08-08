@@ -1,4 +1,13 @@
 import { ApiError } from "~/lib/api/errors";
+import type {
+	ParsedCreateHabitRequest,
+	UpdateHabitRequest,
+} from "./habits.api-contract";
+
+export type {
+	CreateHabitRequest,
+	UpdateHabitRequest,
+} from "./habits.api-contract";
 
 const graphemeSegmenter = new Intl.Segmenter("ja", {
 	granularity: "grapheme",
@@ -7,16 +16,6 @@ const graphemeSegmenter = new Intl.Segmenter("ja", {
 const emojiPattern = new RegExp("^\\p{RGI_Emoji}$", "v");
 const createHabitFields = new Set(["name", "emoji"]);
 const updateHabitFields = new Set(["name", "emoji"]);
-
-export type CreateHabitRequest = {
-	name: string;
-	emoji: string;
-};
-
-export type UpdateHabitRequest = {
-	name?: string;
-	emoji?: string;
-};
 
 function invalidRequest(cause?: unknown): never {
 	throw new ApiError("INVALID_REQUEST", undefined, { cause });
@@ -34,7 +33,9 @@ function isSingleEmojiGrapheme(value: string): boolean {
 	return emojiPattern.test(value);
 }
 
-export function parseCreateHabitRequest(body: unknown): CreateHabitRequest {
+export function parseCreateHabitRequest(
+	body: unknown,
+): ParsedCreateHabitRequest {
 	if (!isJsonObject(body)) {
 		return invalidRequest();
 	}
