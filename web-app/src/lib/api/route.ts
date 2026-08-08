@@ -13,6 +13,7 @@ type HandleApiRequestOptions<TUser, TResult> = {
 		context: ApiRequestContext<TUser>,
 	) => TResult | Response | Promise<TResult | Response>;
 	successStatus?: number;
+	successHeaders?: HeadersInit;
 };
 
 const uuidPattern =
@@ -45,6 +46,7 @@ export async function handleApiRequest<TUser, TResult>({
 	authenticate,
 	handler,
 	successStatus = 200,
+	successHeaders,
 }: HandleApiRequestOptions<TUser, TResult>): Promise<Response> {
 	const requestId = resolveRequestId(request);
 	const startedAt = performance.now();
@@ -65,7 +67,10 @@ export async function handleApiRequest<TUser, TResult>({
 		if (result instanceof Response) {
 			response = result;
 		} else {
-			response = jsonResponse(result, { status: successStatus });
+			response = jsonResponse(result, {
+				status: successStatus,
+				headers: successHeaders,
+			});
 		}
 	} catch (error) {
 		caughtError = error;

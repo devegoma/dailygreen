@@ -61,3 +61,8 @@ export function addDaysToJstDateString(date: string, days: number): string {
 	utcDate.setUTCDate(utcDate.getUTCDate() + days);
 	return utcDate.toISOString().slice(0, 10);
 }
+
+export function getJstDateStart(date: string): Date {
+	const [year, month, day] = date.split("-").map(Number);
+	return new Date(Date.UTC(year, month - 1, day) - 9 * 60 * 60 * 1000);
+}

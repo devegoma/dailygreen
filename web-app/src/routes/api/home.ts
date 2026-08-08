@@ -6,7 +6,9 @@ export const Route = createFileRoute("/api/home")({
 	server: {
 		handlers: {
 			GET: ({ request }) =>
-				handleAuthenticatedApi(request, ({ user }) => getHomeData({ user })),
+				handleAuthenticatedApi(request, ({ user }) => getHomeData({ user }), {
+					successHeaders: { "cache-control": "no-store" },
+				}),
 		},
 	},
 });
