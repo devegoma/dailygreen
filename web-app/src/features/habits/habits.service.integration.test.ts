@@ -1,4 +1,4 @@
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "~/db/index.server";
 import { habit, user } from "~/db/schema";
@@ -24,6 +24,77 @@ async function insertHabits(
 			updatedAt: now,
 		})),
 	);
+}
+
+async function waitForUserLockWaiters(expected: number): Promise<void> {
+	for (let attempt = 0; attempt < 200; attempt += 1) {
+		const result = await db.execute(sql`
+			select count(*)::int as "waiting"
+			from pg_stat_activity
+			where datname = current_database()
+				and pid <> pg_backend_pid()
+				and wait_event_type = 'Lock'
+				and query ilike '%from "user"%for update%'
+		`);
+		if (Number(result[0]?.waiting ?? 0) >= expected) {
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	}
+	throw new Error(`user行ロックの待機数が${expected}件になりませんでした。`);
+}
+
+async function runCreatesInOrder(): Promise<
+	[
+		PromiseSettledResult<Awaited<ReturnType<typeof createHabit>>>,
+		PromiseSettledResult<Awaited<ReturnType<typeof createHabit>>>,
+	]
+> {
+	let releaseBlocker: (() => void) | undefined;
+	let notifyLocked: (() => void) | undefined;
+	const blockerRelease = new Promise<void>((resolve) => {
+		releaseBlocker = resolve;
+	});
+	const blockerLocked = new Promise<void>((resolve) => {
+		notifyLocked = resolve;
+	});
+
+	const blocker = db.transaction(async (tx) => {
+		await tx
+			.select({ id: user.id })
+			.from(user)
+			.where(eq(user.id, owner.id))
+			.for("update");
+		notifyLocked?.();
+		await blockerRelease;
+	});
+
+	await blockerLocked;
+	let firstPromise: ReturnType<typeof createHabit> | undefined;
+	let secondPromise: ReturnType<typeof createHabit> | undefined;
+	try {
+		firstPromise = createHabit({
+			user: owner,
+			body: { name: "並行1" },
+			now,
+		});
+		await waitForUserLockWaiters(1);
+		secondPromise = createHabit({
+			user: owner,
+			body: { name: "並行2" },
+			now,
+		});
+		await waitForUserLockWaiters(2);
+		releaseBlocker?.();
+		return await Promise.allSettled([firstPromise, secondPromise]);
+	} finally {
+		releaseBlocker?.();
+		await Promise.allSettled([
+			blocker,
+			...(firstPromise ? [firstPromise] : []),
+			...(secondPromise ? [secondPromise] : []),
+		]);
+	}
 }
 
 describe("createHabit PostgreSQL integration", () => {
@@ -115,5 +186,30 @@ describe("createHabit PostgreSQL integration", () => {
 			.from(habit)
 			.where(and(eq(habit.userId, owner.id), isNull(habit.archivedAt)));
 		expect(activeCount.value).toBe(10);
+	});
+
+	it("archived 999件からの並行作成を固定順に直列化して総数上限を超えない", async () => {
+		await insertHabits(999, { archived: true });
+
+		const [first, second] = await runCreatesInOrder();
+
+		expect(first).toMatchObject({
+			status: "fulfilled",
+			value: { name: "並行1" },
+		});
+		expect(second.status).toBe("rejected");
+		if (second.status === "rejected") {
+			expect(second.reason).toBeInstanceOf(ApiError);
+			expect(second.reason).toMatchObject({
+				code: "HABIT_LIMIT_EXCEEDED",
+				status: 409,
+			});
+		}
+
+		const [totalCount] = await db
+			.select({ value: count() })
+			.from(habit)
+			.where(eq(habit.userId, owner.id));
+		expect(totalCount.value).toBe(1000);
 	});
 });

@@ -1,6 +1,7 @@
 import {
 	boolean,
 	date,
+	index,
 	integer,
 	pgTable,
 	text,
@@ -106,23 +107,33 @@ export const verification = pgTable("verification", {
 // 2. アプリ固有のテーブル (Daily Green)
 // ==========================================
 
-export const habit = pgTable("habit", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	userId: text("userId")
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
-	name: text("name").notNull(),
-	emoji: text("emoji").notNull().default(""),
-	currentStreak: integer("currentStreak").notNull().default(0),
-	maxStreak: integer("maxStreak").notNull().default(0),
-	archivedAt: timestamp("archivedAt", { mode: "date", withTimezone: true }),
-	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
-		.notNull()
-		.defaultNow(),
-	updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true })
-		.notNull()
-		.defaultNow(),
-});
+export const habit = pgTable(
+	"habit",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		userId: text("userId")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		emoji: text("emoji").notNull().default(""),
+		currentStreak: integer("currentStreak").notNull().default(0),
+		maxStreak: integer("maxStreak").notNull().default(0),
+		archivedAt: timestamp("archivedAt", { mode: "date", withTimezone: true }),
+		createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => [
+		index("habit_user_id_archived_at_id_idx").on(
+			table.userId,
+			table.archivedAt,
+			table.id,
+		),
+	],
+);
 
 export const dailyRecord = pgTable(
 	"daily_record",

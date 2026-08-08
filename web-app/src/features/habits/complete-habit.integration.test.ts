@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "~/db/index.server";
 import { dailyRecord, habit, user } from "~/db/schema";
@@ -28,6 +28,24 @@ async function insertHabit(
 		throw new Error("テスト用habitを作成できませんでした。");
 	}
 	return created;
+}
+
+function getErrorMessages(error: unknown): string[] {
+	const messages: string[] = [];
+	const visited = new Set<object>();
+	let current = error;
+	while (typeof current === "object" && current !== null) {
+		if (visited.has(current)) {
+			break;
+		}
+		visited.add(current);
+		const candidate = current as { message?: unknown; cause?: unknown };
+		if (typeof candidate.message === "string") {
+			messages.push(candidate.message);
+		}
+		current = candidate.cause;
+	}
+	return messages;
 }
 
 describe("completeHabit PostgreSQL integration", () => {
@@ -149,6 +167,69 @@ describe("completeHabit PostgreSQL integration", () => {
 		).rejects.toMatchObject({
 			code: "HABIT_ALREADY_COMPLETED_TODAY",
 			status: 409,
+		});
+	});
+
+	it("daily_record INSERT後のhabit更新失敗時にtransaction全体をrollbackする", async () => {
+		const target = await insertHabit({ currentStreak: 4, maxStreak: 7 });
+		await db.insert(dailyRecord).values({
+			habitId: target.id,
+			date: "2026-07-11",
+			completedAt: new Date("2026-07-11T03:00:00.000Z"),
+		});
+
+		try {
+			await db.execute(sql`
+				drop trigger if exists test_fail_complete_habit_update on "habit"
+			`);
+			await db.execute(sql`
+				create or replace function test_fail_complete_habit_update()
+				returns trigger
+				language plpgsql
+				as $trigger$
+				begin
+					raise exception 'forced habit update failure';
+				end;
+				$trigger$
+			`);
+			await db.execute(sql`
+				create trigger test_fail_complete_habit_update
+				before update on "habit"
+				for each row execute function test_fail_complete_habit_update()
+			`);
+
+			let failure: unknown;
+			try {
+				await completeHabit({ user: owner, habitId: target.id, now: baseNow });
+			} catch (error) {
+				failure = error;
+			}
+			expect(getErrorMessages(failure)).toContain(
+				"forced habit update failure",
+			);
+		} finally {
+			await db.execute(sql`
+				drop trigger if exists test_fail_complete_habit_update on "habit"
+			`);
+			await db.execute(sql`
+				drop function if exists test_fail_complete_habit_update()
+			`);
+		}
+
+		const records = await db
+			.select({ date: dailyRecord.date })
+			.from(dailyRecord)
+			.where(eq(dailyRecord.habitId, target.id));
+		expect(records).toEqual([{ date: "2026-07-11" }]);
+
+		const [storedHabit] = await db
+			.select()
+			.from(habit)
+			.where(eq(habit.id, target.id));
+		expect(storedHabit).toMatchObject({
+			currentStreak: 4,
+			maxStreak: 7,
+			updatedAt: baseNow,
 		});
 	});
 

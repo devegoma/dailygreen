@@ -5,6 +5,7 @@ import { dailyRecord, habit, user } from "~/db/schema";
 import {
 	archiveHabit,
 	completeHabit,
+	createHabit,
 	updateHabit,
 } from "~/features/habits/habits.service.server";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
@@ -290,6 +291,55 @@ describe("getHomeData PostgreSQL integration", () => {
 		const afterAll = await getHomeData({ user: owner, now });
 		expect(afterAll.habits).toEqual([]);
 		expect(getActivity(afterAll, "2026-07-10").completionRate).toBeNull();
+	});
+
+	it("active行ロック待機中のcreateを固定集合から除外し次回取得で反映する", async () => {
+		const target = await insertHabit({ name: "a-existing" });
+		await insertRecord(target.id, "2026-07-11");
+
+		let releaseBlocker: (() => void) | undefined;
+		let notifyLocked: (() => void) | undefined;
+		const blockerRelease = new Promise<void>((resolve) => {
+			releaseBlocker = resolve;
+		});
+		const blockerLocked = new Promise<void>((resolve) => {
+			notifyLocked = resolve;
+		});
+		const blocker = db.transaction(async (tx) => {
+			await tx
+				.select({ id: habit.id })
+				.from(habit)
+				.where(eq(habit.id, target.id))
+				.for("update");
+			notifyLocked?.();
+			await blockerRelease;
+		});
+
+		await blockerLocked;
+		const waitingHome = getHomeData({ user: owner, now });
+		try {
+			await waitForHabitLockWaiters(1);
+			const created = await createHabit({
+				user: owner,
+				body: { name: "z-created" },
+				now: new Date("2026-07-01T03:00:00.000Z"),
+			});
+			releaseBlocker?.();
+
+			const fixedResult = await waitingHome;
+			expect(fixedResult.habits.map((item) => item.id)).toEqual([target.id]);
+			expect(getActivity(fixedResult, "2026-07-11").completionRate).toBe(1);
+
+			const nextResult = await getHomeData({ user: owner, now });
+			expect(nextResult.habits.map((item) => item.id)).toEqual([
+				target.id,
+				created.id,
+			]);
+			expect(getActivity(nextResult, "2026-07-11").completionRate).toBe(0.5);
+		} finally {
+			releaseBlocker?.();
+			await Promise.allSettled([blocker, waitingHome]);
+		}
 	});
 
 	it("complete先行時は当日recordとstreakを保持してhomeの古い補正で上書きしない", async () => {
