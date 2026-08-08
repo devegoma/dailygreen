@@ -8,9 +8,36 @@
 
 html,
 body {
-	@apply bg-white dark:bg-gray-950;
+	@apply bg-white;
+	color-scheme: light;
+}
 
-	@media (prefers-color-scheme: dark) {
-		color-scheme: dark;
-	}
+[data-activity-level="null"] {
+	background-color: #f5f5f4;
+	outline-color: #d6d3d1;
+}
+
+[data-activity-level="zero"] {
+	background-color: #9ca3af;
+	outline-color: #6b7280;
+}
+
+[data-activity-level="level-1"] {
+	background-color: #dcfce7;
+	outline-color: #86efac;
+}
+
+[data-activity-level="level-2"] {
+	background-color: #4ade80;
+	outline-color: #22c55e;
+}
+
+[data-activity-level="level-3"] {
+	background-color: #15803d;
+	outline-color: #166534;
+}
+
+[data-activity-level="level-4"] {
+	background-color: #052e16;
+	outline-color: #022c22;
 }
