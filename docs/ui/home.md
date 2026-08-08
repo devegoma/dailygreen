@@ -225,6 +225,7 @@ stateDiagram-v2
 `ActivityLog` は `activityLog` を受け取って描画する pure な表示コンポーネントとする。コンポーネント自身は fetch、auth、TanStack Query、mutation を扱わず、chart library も使用しない。
 
 - API の実データ 365 件をすべて表示する。1 列を 1 週間、7 行を曜日、日曜始まりとし、左を過去、右を最新とする。
+- Desktop では 365 日分を原則として 1 画面幅に収める。セルと間隔を必要以上に大きくせず、横長のグリッドとして表示する。
 - 先頭日付の曜日位置合わせには placeholder を置く。末尾も週レイアウトを完成させるために必要なら placeholder を置く。placeholder はデータセル数に含めず、達成率、`aria-label`、hover state を持たない。
 - API の `YYYY-MM-DD` は date-only 値としてタイムゾーン非依存に処理する。曜日・月の算出を `new Date()` のローカル時刻解釈に依存させず、UTC component を使う等の安全な方法を選ぶ。
 - 月ラベル（例: `1月`）を各月の最初の週付近に表示する。曜日ラベルは省スペースのため `月`、`水`、`金` だけを表示してよいが、内部グリッドは全 7 曜日とする。
@@ -316,6 +317,7 @@ flowchart LR
 達成済み状態では:
 
 - 完了ボタンを disabled 表示にする
+- カード全体を淡い緑系の背景・境界などで達成済みと示す。カード全体の opacity を大きく下げず、本文と操作の可読性を保つ
 - `POST /api/habits/:id/complete` を再実行しない
 - 二重達成エラーを通常導線では発生させない
 
@@ -333,6 +335,8 @@ flowchart LR
 ### 起動
 
 `今日の習慣` セクションの `タスク追加` ボタンから開く。
+
+Dialog を開いた直後は、習慣名 input を initial focus とする。
 
 ### フォーム構造
 
@@ -586,6 +590,8 @@ sequenceDiagram
 - 習慣カードのメニューはカード右上に配置する
 
 Activity Log は mobile では横スクロールとし、最初の表示時だけ今日側（右端）を初期表示する。ユーザーが過去へスクロールした後、background refetch ごとに右端へ戻してはならない。
+
+Dialog は small viewport でも viewport 外へはみ出さない寸法とし、必要な場合は Dialog 内をスクロール可能にする。
 
 ## アクセシビリティ
 
