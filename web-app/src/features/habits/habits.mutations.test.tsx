@@ -54,21 +54,21 @@ describe("habit mutations", () => {
 		expect(refetchQueries).toHaveBeenCalledTimes(3);
 	});
 
-	it("complete後に先行したstale GETが解決しても達成結果を上書きしない", async () => {
+	it("completeはAbortを無視する背景GETを停止し、追加GETなしでpatchを保持する", async () => {
 		const queryClient = createQueryClient();
 		const original = structuredClone(homeData);
 		queryClient.setQueryData(homeQueryKey, original);
-		await queryClient.invalidateQueries({
-			queryKey: homeQueryKey,
-			refetchType: "none",
-		});
 		let resolveStaleHome: ((response: Response) => void) | undefined;
+		let staleHomeAborted = false;
 		vi.stubGlobal(
 			"fetch",
-			fetchMock.mockImplementation((path: string) => {
+			fetchMock.mockImplementation((path: string, init?: RequestInit) => {
 				if (path === "/api/home") {
 					return new Promise<Response>((resolve) => {
 						resolveStaleHome = resolve;
+						init?.signal?.addEventListener("abort", () => {
+							staleHomeAborted = true;
+						});
 					});
 				}
 				return Promise.resolve(jsonResponse(completeResponse));
@@ -86,8 +86,15 @@ describe("habit mutations", () => {
 		});
 
 		await result.current.mutateAsync();
+		expect(staleHomeAborted).toBe(true);
+		expect(
+			fetchMock.mock.calls.filter(([path]) => path === "/api/home"),
+		).toHaveLength(1);
 		resolveStaleHome?.(jsonResponse(original));
 		await inFlightHome.catch(() => undefined);
+		await waitFor(() =>
+			expect(queryClient.getQueryState(homeQueryKey)?.fetchStatus).toBe("idle"),
+		);
 		const updated = queryClient.getQueryData<HomeDataResponse>(homeQueryKey);
 		expect(updated?.habits).toEqual([
 			{

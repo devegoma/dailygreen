@@ -1,6 +1,4 @@
 import {
-	CancelledError,
-	isCancelledError,
 	type QueryClient,
 	queryOptions,
 	useQuery,
@@ -24,8 +22,8 @@ function currentHomeRequestRevision(queryClient: QueryClient): number {
 	return homeRequestRevisions.get(queryClient) ?? 0;
 }
 
-/** 進行中の古い GET 応答を採用しないための世代を進める。 */
-export function preventStaleHomeResponses(queryClient: QueryClient): number {
+/** helper ごとの正常GETを識別するための世代を進める。 */
+function advanceHomeRequestRevision(queryClient: QueryClient): number {
 	const revision = currentHomeRequestRevision(queryClient) + 1;
 	homeRequestRevisions.set(queryClient, revision);
 	return revision;
@@ -66,20 +64,13 @@ export function homeQueryOptions(
 		refetchOnWindowFocus: true,
 		refetchOnReconnect: true,
 		retry: (failureCount, error) =>
-			failureCount < 1 &&
-			!isCancelledError(error) &&
-			isRetryableApiError(error),
+			failureCount < 1 && isRetryableApiError(error),
 		queryFn: async ({ signal }) => {
 			const revision = queryClient
 				? currentHomeRequestRevision(queryClient)
 				: undefined;
 			const home = await getHomeData(signal);
-			if (queryClient && revision !== currentHomeRequestRevision(queryClient)) {
-				// 古い GET を破棄しても、mutation が直前に patch した cache を
-				// revert してはならない。
-				throw new CancelledError({ revert: false, silent: true });
-			}
-			if (queryClient) {
+			if (queryClient && !signal.aborted) {
 				recordHomeSuccessfulFetch(queryClient, revision ?? 0);
 			}
 			return home;
@@ -98,7 +89,10 @@ export async function invalidateAndRefetchHome(
 	queryClient: QueryClient,
 ): Promise<boolean> {
 	const successfulFetch = currentHomeSuccessfulFetch(queryClient);
-	const expectedRevision = preventStaleHomeResponses(queryClient);
+	const expectedRevision = advanceHomeRequestRevision(queryClient);
+	// cancelQueries は内部で同期的に query のretryerを停止する。abortを無視する
+	// transportの遅延レスポンスも、TanStack Queryの古いretryerには採用されない。
+	await queryClient.cancelQueries({ queryKey: homeQueryKey });
 	await queryClient.invalidateQueries({
 		queryKey: homeQueryKey,
 		refetchType: "none",

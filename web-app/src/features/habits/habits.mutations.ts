@@ -10,7 +10,6 @@ import {
 	clearHomeCache,
 	homeQueryKey,
 	invalidateAndRefetchHome,
-	preventStaleHomeResponses,
 } from "~/features/home/home.query";
 import { ApiClientError } from "~/lib/api/client";
 import {
@@ -225,8 +224,9 @@ export function useCompleteHabitMutation(
 		onSuccess: (response, _variables, context) => {
 			const refetchAfterComplete =
 				context?.refetchAfterComplete || hasInvalidatedHomeRefetch(queryClient);
-			// 完了前に始まった GET は、完了レスポンスによる patch を上書きできない。
-			preventStaleHomeResponses(queryClient);
+			// cancelQueries は retryer を同期停止するため、Abortを無視するtransportの
+			// 古い応答もpatch後のcacheを上書きできない。
+			void queryClient.cancelQueries({ queryKey: homeQueryKey });
 			applyCompletedHabit(queryClient, response);
 			// create / edit / archive の再取得が完了操作と競合した場合だけ、最終
 			// server state を取り直す。通常のcomplete成功では追加GETを行わない。
