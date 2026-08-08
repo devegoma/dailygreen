@@ -4,7 +4,7 @@ import {
 	useMutation,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { type RefObject, useCallback, useRef } from "react";
+import { type RefObject, useCallback, useRef, useState } from "react";
 import type { HomeDataResponse } from "~/features/home/home.contract";
 import {
 	clearHomeCache,
@@ -63,16 +63,56 @@ function isStaleStateError(error: unknown): boolean {
 function useStaleStateErrorReset(
 	error: unknown,
 	reset: () => void,
-	synchronized: RefObject<boolean>,
+	synchronizedRef: RefObject<boolean>,
+	clearSynchronized: () => void,
 ) {
 	return useCallback(() => {
-		if (!synchronized.current || !isStaleStateError(error)) {
+		if (!synchronizedRef.current || !isStaleStateError(error)) {
 			return false;
 		}
 		reset();
-		synchronized.current = false;
+		clearSynchronized();
 		return true;
-	}, [error, reset, synchronized]);
+	}, [clearSynchronized, error, reset, synchronizedRef]);
+}
+
+/**
+ * stale-state error の再同期完了を render に通知する。ref だけでは非同期 GET
+ * 完了後に HabitCard が再描画されず、表示済みのエラーを消去できないため state も
+ * 併用する。直近の mutation error だけが状態を更新する。
+ */
+function useStaleStateSynchronization() {
+	const [isSynchronized, setIsSynchronized] = useState(false);
+	const synchronizedRef = useRef(false);
+	const sequenceRef = useRef(0);
+	const beginSynchronization = useCallback(() => {
+		sequenceRef.current += 1;
+		synchronizedRef.current = false;
+		setIsSynchronized(false);
+		return sequenceRef.current;
+	}, []);
+	const completeSynchronization = useCallback(
+		(sequence: number, synchronized: boolean) => {
+			if (sequence === sequenceRef.current) {
+				synchronizedRef.current = synchronized;
+				setIsSynchronized(synchronized);
+			}
+		},
+		[],
+	);
+	const clearSynchronization = useCallback(() => {
+		sequenceRef.current += 1;
+		synchronizedRef.current = false;
+		setIsSynchronized(false);
+	}, []);
+
+	return {
+		isSynchronized,
+		synchronizedRef,
+		beginSynchronization,
+		completeSynchronization,
+		clearSynchronization,
+	};
 }
 
 async function synchronizeMutationError(
@@ -155,29 +195,40 @@ export function useUpdateHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
-	const staleStateSynchronized = useRef(false);
+	const staleStateSynchronization = useStaleStateSynchronization();
 	const mutation = useMutation({
 		mutationKey: habitMutationKey(habitId, "update"),
 		mutationFn: (request: UpdateHabitRequest) =>
 			updateHabitRequest(habitId, request),
+		onMutate: () => {
+			staleStateSynchronization.clearSynchronization();
+		},
 		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
-			staleStateSynchronized.current = false;
+			const sequence = staleStateSynchronization.beginSynchronization();
 			void synchronizeMutationError(
 				queryClient,
 				error,
 				options.onUnauthorized,
 			).then((synchronized) => {
-				staleStateSynchronized.current = synchronized;
+				staleStateSynchronization.completeSynchronization(
+					sequence,
+					synchronized,
+				);
 			});
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
 		mutation.error,
 		mutation.reset,
-		staleStateSynchronized,
+		staleStateSynchronization.synchronizedRef,
+		staleStateSynchronization.clearSynchronization,
 	);
-	return { ...mutation, resetStaleStateError };
+	return {
+		...mutation,
+		resetStaleStateError,
+		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
+	};
 }
 
 export function useArchiveHabitMutation(
@@ -185,28 +236,39 @@ export function useArchiveHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
-	const staleStateSynchronized = useRef(false);
+	const staleStateSynchronization = useStaleStateSynchronization();
 	const mutation = useMutation({
 		mutationKey: habitMutationKey(habitId, "archive"),
 		mutationFn: () => archiveHabitRequest(habitId),
+		onMutate: () => {
+			staleStateSynchronization.clearSynchronization();
+		},
 		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
-			staleStateSynchronized.current = false;
+			const sequence = staleStateSynchronization.beginSynchronization();
 			void synchronizeMutationError(
 				queryClient,
 				error,
 				options.onUnauthorized,
 			).then((synchronized) => {
-				staleStateSynchronized.current = synchronized;
+				staleStateSynchronization.completeSynchronization(
+					sequence,
+					synchronized,
+				);
 			});
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
 		mutation.error,
 		mutation.reset,
-		staleStateSynchronized,
+		staleStateSynchronization.synchronizedRef,
+		staleStateSynchronization.clearSynchronization,
 	);
-	return { ...mutation, resetStaleStateError };
+	return {
+		...mutation,
+		resetStaleStateError,
+		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
+	};
 }
 
 export function useCompleteHabitMutation(
@@ -214,13 +276,16 @@ export function useCompleteHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
-	const staleStateSynchronized = useRef(false);
+	const staleStateSynchronization = useStaleStateSynchronization();
 	const mutation = useMutation({
 		mutationKey: habitMutationKey(habitId, "complete"),
 		mutationFn: () => completeHabitRequest(habitId),
-		onMutate: () => ({
-			refetchAfterComplete: hasInvalidatedHomeRefetch(queryClient),
-		}),
+		onMutate: () => {
+			staleStateSynchronization.clearSynchronization();
+			return {
+				refetchAfterComplete: hasInvalidatedHomeRefetch(queryClient),
+			};
+		},
 		onSuccess: (response, _variables, context) => {
 			const refetchAfterComplete =
 				context?.refetchAfterComplete || hasInvalidatedHomeRefetch(queryClient);
@@ -235,20 +300,28 @@ export function useCompleteHabitMutation(
 			}
 		},
 		onError: (error) => {
-			staleStateSynchronized.current = false;
+			const sequence = staleStateSynchronization.beginSynchronization();
 			void synchronizeMutationError(
 				queryClient,
 				error,
 				options.onUnauthorized,
 			).then((synchronized) => {
-				staleStateSynchronized.current = synchronized;
+				staleStateSynchronization.completeSynchronization(
+					sequence,
+					synchronized,
+				);
 			});
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
 		mutation.error,
 		mutation.reset,
-		staleStateSynchronized,
+		staleStateSynchronization.synchronizedRef,
+		staleStateSynchronization.clearSynchronization,
 	);
-	return { ...mutation, resetStaleStateError };
+	return {
+		...mutation,
+		resetStaleStateError,
+		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
+	};
 }
