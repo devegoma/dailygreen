@@ -32,17 +32,24 @@ const appApiRoutes = [
 		method: "POST",
 	},
 	{
+		file: "src/routes/api/habits/$habitId.ts",
+		path: 'createFileRoute("/api/habits/$habitId")',
+		fullPath: "'/api/habits/$habitId'",
+		parentRoute: "ApiHabitsRoute",
+		method: "PATCH",
+	},
+	{
 		file: "src/routes/api/habits/$habitId/archive.ts",
 		path: 'createFileRoute("/api/habits/$habitId/archive")',
 		fullPath: "'/api/habits/$habitId/archive'",
-		parentRoute: "ApiHabitsRoute",
+		parentRoute: "ApiHabitsHabitIdRoute",
 		method: "PATCH",
 	},
 	{
 		file: "src/routes/api/habits/$habitId/complete.ts",
 		path: 'createFileRoute("/api/habits/$habitId/complete")',
 		fullPath: "'/api/habits/$habitId/complete'",
-		parentRoute: "ApiHabitsRoute",
+		parentRoute: "ApiHabitsHabitIdRoute",
 		method: "POST",
 	},
 ];

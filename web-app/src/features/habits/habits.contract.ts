@@ -6,10 +6,16 @@ const graphemeSegmenter = new Intl.Segmenter("ja", {
 // biome-ignore lint/complexity/useRegexLiterals: ES2022 targetでvフラグを使用するためコンストラクタ形式にする。
 const emojiPattern = new RegExp("^\\p{RGI_Emoji}$", "v");
 const createHabitFields = new Set(["name", "emoji"]);
+const updateHabitFields = new Set(["name", "emoji"]);
 
 export type CreateHabitRequest = {
 	name: string;
 	emoji: string;
+};
+
+export type UpdateHabitRequest = {
+	name?: string;
+	emoji?: string;
 };
 
 function invalidRequest(cause?: unknown): never {
@@ -53,4 +59,42 @@ export function parseCreateHabitRequest(body: unknown): CreateHabitRequest {
 	}
 
 	return { name, emoji };
+}
+
+export function parseUpdateHabitRequest(body: unknown): UpdateHabitRequest {
+	if (!isJsonObject(body)) {
+		return invalidRequest();
+	}
+
+	const fields = Object.keys(body);
+	if (
+		fields.length === 0 ||
+		fields.some((field) => !updateHabitFields.has(field))
+	) {
+		return invalidRequest();
+	}
+
+	const request: UpdateHabitRequest = {};
+	if ("name" in body) {
+		if (typeof body.name !== "string") {
+			return invalidRequest();
+		}
+		const name = body.name.trim();
+		if (name === "" || countGraphemes(name) > 50) {
+			return invalidRequest();
+		}
+		request.name = name;
+	}
+
+	if ("emoji" in body) {
+		if (
+			typeof body.emoji !== "string" ||
+			(body.emoji !== "" && !isSingleEmojiGrapheme(body.emoji))
+		) {
+			return invalidRequest();
+		}
+		request.emoji = body.emoji;
+	}
+
+	return request;
 }

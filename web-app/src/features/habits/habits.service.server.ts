@@ -4,7 +4,10 @@ import { dailyRecord, habit, user as userTable } from "~/db/schema";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
 import { getJstDateContext, toJstDateTimeString } from "~/lib/api/date";
 import { ApiError, notImplementedApiError } from "~/lib/api/errors";
-import { parseCreateHabitRequest } from "./habits.contract";
+import {
+	parseCreateHabitRequest,
+	parseUpdateHabitRequest,
+} from "./habits.contract";
 
 const ACTIVE_HABIT_LIMIT = 10;
 const TOTAL_HABIT_LIMIT = 1000;
@@ -29,6 +32,10 @@ export type HabitMutationInput = {
 	user: AuthenticatedUser;
 	habitId: string;
 	now?: Date;
+};
+
+export type UpdateHabitInput = HabitMutationInput & {
+	body: unknown;
 };
 
 type HabitRow = typeof habit.$inferSelect;
@@ -178,6 +185,32 @@ export async function createHabit(
 
 export async function archiveHabit(_input: HabitMutationInput): Promise<never> {
 	throw notImplementedApiError("PATCH /api/habits/:id/archive");
+}
+
+export async function updateHabit(
+	input: UpdateHabitInput,
+): Promise<HabitResponse> {
+	const request = parseUpdateHabitRequest(input.body);
+	const now = input.now ?? new Date();
+
+	return db.transaction(async (tx) => {
+		const lockedHabit = await lockHabit(tx, input.user.id, input.habitId);
+		if (lockedHabit.archivedAt !== null) {
+			throw new ApiError("HABIT_ARCHIVED");
+		}
+
+		const [updatedHabit] = await tx
+			.update(habit)
+			.set({ ...request, updatedAt: now })
+			.where(eq(habit.id, lockedHabit.id))
+			.returning();
+
+		if (!updatedHabit) {
+			throw new Error("習慣の更新結果を取得できませんでした。");
+		}
+
+		return toHabitResponse(updatedHabit);
+	});
 }
 
 export async function completeHabit(
