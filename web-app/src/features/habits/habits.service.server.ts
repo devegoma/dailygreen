@@ -4,23 +4,23 @@ import { dailyRecord, habit, user as userTable } from "~/db/schema";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
 import { getJstDateContext, toJstDateTimeString } from "~/lib/api/date";
 import { ApiError } from "~/lib/api/errors";
+import type {
+	CompletedHabit,
+	CompleteHabitResponse,
+	HabitResponse,
+} from "./habits.api-contract";
 import {
 	parseCreateHabitRequest,
 	parseUpdateHabitRequest,
 } from "./habits.contract";
 
+export type {
+	CompleteHabitResponse,
+	HabitResponse,
+} from "./habits.api-contract";
+
 const ACTIVE_HABIT_LIMIT = 10;
 const TOTAL_HABIT_LIMIT = 1000;
-
-export type HabitResponse = {
-	id: string;
-	name: string;
-	emoji: string;
-	currentStreak: number;
-	maxStreak: number;
-	createdAt: string;
-	archivedAt: string | null;
-};
 
 export type CreateHabitInput = {
 	user: AuthenticatedUser;
@@ -41,23 +41,6 @@ export type UpdateHabitInput = HabitMutationInput & {
 type HabitRow = typeof habit.$inferSelect;
 type HabitTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-type HabitSummary = Pick<
-	HabitRow,
-	"id" | "name" | "emoji" | "currentStreak" | "maxStreak"
-> & {
-	isCompletedToday: boolean;
-};
-
-export type CompleteHabitResponse = {
-	dailyRecord: {
-		id: string;
-		habitId: string;
-		date: string;
-		completedAt: string;
-	};
-	habit: HabitSummary;
-};
-
 const uuidPattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -73,7 +56,7 @@ function toHabitResponse(row: HabitRow): HabitResponse {
 	};
 }
 
-function toHabitSummary(row: HabitRow): HabitSummary {
+function toHabitSummary(row: HabitRow): CompletedHabit {
 	return {
 		id: row.id,
 		name: row.name,
