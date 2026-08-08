@@ -3,7 +3,7 @@ import { db } from "~/db/index.server";
 import { dailyRecord, habit, user as userTable } from "~/db/schema";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
 import { getJstDateContext, toJstDateTimeString } from "~/lib/api/date";
-import { ApiError, notImplementedApiError } from "~/lib/api/errors";
+import { ApiError } from "~/lib/api/errors";
 import {
 	parseCreateHabitRequest,
 	parseUpdateHabitRequest,
@@ -183,8 +183,29 @@ export async function createHabit(
 	});
 }
 
-export async function archiveHabit(_input: HabitMutationInput): Promise<never> {
-	throw notImplementedApiError("PATCH /api/habits/:id/archive");
+export async function archiveHabit(
+	input: HabitMutationInput,
+): Promise<HabitResponse> {
+	const now = input.now ?? new Date();
+
+	return db.transaction(async (tx) => {
+		const lockedHabit = await lockHabit(tx, input.user.id, input.habitId);
+		if (lockedHabit.archivedAt !== null) {
+			return toHabitResponse(lockedHabit);
+		}
+
+		const [archivedHabit] = await tx
+			.update(habit)
+			.set({ archivedAt: now, updatedAt: now })
+			.where(eq(habit.id, lockedHabit.id))
+			.returning();
+
+		if (!archivedHabit) {
+			throw new Error("習慣のアーカイブ結果を取得できませんでした。");
+		}
+
+		return toHabitResponse(archivedHabit);
+	});
 }
 
 export async function updateHabit(
