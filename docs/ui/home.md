@@ -10,6 +10,15 @@
 
 MVP では、ホーム画面がアプリの中心画面となる。
 
+## MVP UI 共通方針
+
+- テーマはライト固定とする。dark mode の切替は提供せず、OS の `prefers-color-scheme: dark` でもライト表示を維持する。必要に応じて `color-scheme: light` を指定する。
+- 背景は白〜ごく薄いニュートラル、主アクセントは緑とする。落ち着いたシンプルな SaaS UI とし、過度なゲーミフィケーションは行わない。
+- Activity Log は GitHub の contribution graph を連想できる表示とするが、GitHub UI をコピーしない。
+- 画面上の文言は原則日本語とする。ブランド名の `Daily Green` はそのまま表示する。
+- Dialog には Radix Dialog、操作メニューには Radix Dropdown Menu を使用する。shadcn/ui は導入しない。
+- 見た目は Daily Green 側の Tailwind CSS で管理し、Toast、chart、icon のライブラリは追加しない。
+
 ## ユーザーができること
 
 - Google アカウントでログインする
@@ -35,10 +44,10 @@ flowchart TB
       UserMenu["User menu"]
     end
 
-    subgraph ActivityLog["Activity Log"]
+    subgraph ActivityLog["アクティビティログ"]
       direction TB
       ActivityGrid["365 days contribution-style grid"]
-      ActivityLegend["Less / More legend"]
+      ActivityLegend["少ない / 多い 凡例"]
     end
 
     subgraph TodayHabits["今日の習慣"]
@@ -47,7 +56,7 @@ flowchart TB
       subgraph TodayHabitsHeader["Today habits header"]
         direction LR
         SectionTitle["今日の習慣"]
-        TodaySummary["3 / 5 completed"]
+        TodaySummary["3 / 5 完了"]
         AddHabitButton["+ タスク追加"]
       end
 
@@ -64,12 +73,12 @@ flowchart TB
     direction TB
 
     MobileHeader["Header"]
-    MobileActivityLog["Activity Log\nhorizontally scrollable"]
+    MobileActivityLog["アクティビティログ\n横スクロール"]
 
     subgraph MobileTodayHabits["今日の習慣"]
       direction TB
       MobileSectionTitle["今日の習慣"]
-      MobileSummary["3 / 5 completed"]
+      MobileSummary["3 / 5 完了"]
       MobileAddHabit["+ タスク追加"]
       MobileHabitList["Habit card list\nsingle column"]
     end
@@ -118,11 +127,19 @@ flowchart TD
 
 | 操作 | API | 成功時 |
 | --- | --- | --- |
-| 習慣追加 | `POST /api/habits` | Dialog を閉じ、`GET /api/home` を再取得 |
-| 習慣更新 | `PATCH /api/habits/:id` | Dialog を閉じ、`GET /api/home` を再取得 |
+| 習慣追加 | `POST /api/habits` | Dialog を閉じ、`["home"]` を invalidate して `GET /api/home` を再取得 |
+| 習慣更新 | `PATCH /api/habits/:id` | Dialog を閉じ、`["home"]` を invalidate して `GET /api/home` を再取得 |
 | 習慣達成 | `POST /api/habits/:id/complete` | レスポンスの `habit` で対象カードを更新 |
-| 習慣アーカイブ | `PATCH /api/habits/:id/archive` | Dialog を閉じ、`GET /api/home` を再取得 |
-| ログアウト | Better Auth client | ログイン前表示へ戻す |
+| 習慣アーカイブ | `PATCH /api/habits/:id/archive` | Dialog を閉じ、`["home"]` を invalidate して `GET /api/home` を再取得 |
+| ログアウト | Better Auth client | ユーザーに紐づくホームキャッシュを破棄してログイン前表示へ戻す |
+
+### 認証・ホームデータの取得
+
+- セッション確認中は簡潔な `読み込み中…` を表示する。未認証時はログイン前表示だけを表示し、ホームデータは取得しない。
+- ログイン前表示には `Daily Green`、`毎日の習慣を記録して、積み上げを振り返りましょう。`、Google ログイン導線を表示する。開発環境や DB の内部事情を示す文言はプロダクト UI に出さない。ログイン失敗時は `ログインに失敗しました。もう一度お試しください。` と表示する。
+- 認証済みの場合だけホームデータを取得する。TanStack Query を使う場合の query key は `['home']`、`staleTime` は `0` とする。window focus と reconnect 時は再取得する。
+- `401 UNAUTHORIZED` を受け取ったらホームキャッシュを破棄してセッションを再確認し、未認証 UI へ戻す。別ユーザーへの切替時や明示的なログアウト後に、前ユーザーの `['home']` キャッシュを表示してはならない。
+- `401` を含む 4xx は自動 retry しない。network error と 5xx の retry は多くても 1 回に制限し、無限 retry や長い retry は行わない。
 
 ## UI 状態
 
@@ -174,10 +191,12 @@ stateDiagram-v2
 | 項目 | 内容 |
 | --- | --- |
 | アプリ名 | `Daily Green` |
-| ユーザー情報 | ログイン済みユーザーの簡易情報 |
+| ユーザー情報 | 画像があれば avatar とユーザー名。メールアドレスの常時表示は不要 |
 | 操作 | ログアウト |
 
 主要画面が `/` のみであるため、グローバルナビゲーションは配置しない。
+
+ログアウト中は二重実行を防ぐ。成功時はユーザーに紐づくキャッシュを破棄し、安全にログイン前表示へ戻す。
 
 ### Activity Log
 
@@ -187,7 +206,7 @@ stateDiagram-v2
 | --- | --- |
 | 対象期間 | 今日を含む直近 365 日 |
 | 表示形式 | contribution-style grid |
-| 凡例 | `Less` / `More` |
+| 凡例 | `少ない` / `多い` |
 | セル状態 | `null` / `0` / level 1〜4 |
 
 #### 色レベル
@@ -201,13 +220,25 @@ stateDiagram-v2
 | `0.50 < completionRate < 1.00` | level 3 |
 | `completionRate === 1.00` | level 4 |
 
-Activity Log のセルクリック操作は提供しない。各セルには日付と達成率を示す `aria-label` を付与する。
+#### グリッド・日付・表示責務
+
+`ActivityLog` は `activityLog` を受け取って描画する pure な表示コンポーネントとする。コンポーネント自身は fetch、auth、TanStack Query、mutation を扱わず、chart library も使用しない。
+
+- API の実データ 365 件をすべて表示する。1 列を 1 週間、7 行を曜日、日曜始まりとし、左を過去、右を最新とする。
+- Desktop では 365 日分を原則として 1 画面幅に収める。セルと間隔を必要以上に大きくせず、横長のグリッドとして表示する。
+- 先頭日付の曜日位置合わせには placeholder を置く。末尾も週レイアウトを完成させるために必要なら placeholder を置く。placeholder はデータセル数に含めず、達成率、`aria-label`、hover state を持たない。
+- API の `YYYY-MM-DD` は date-only 値としてタイムゾーン非依存に処理する。曜日・月の算出を `new Date()` のローカル時刻解釈に依存させず、UTC component を使う等の安全な方法を選ぶ。
+- 月ラベル（例: `1月`）を各月の最初の週付近に表示する。曜日ラベルは省スペースのため `月`、`水`、`金` だけを表示してよいが、内部グリッドは全 7 曜日とする。
+- 凡例は `少ない □ ■ ■ ■ ■ 多い` とする。`null` と `0` は異なる見た目とし、positive level 1〜4 は明確な緑の 4 段階で、値が高いほど濃くする。dark variant は作らない。
+
+Activity Log のセルクリック操作は提供しない。各実データセルには日付と達成率を示す `aria-label` を付与する。365 セルを Tab stop にして keyboard focus を過剰に増やさない。
 
 `aria-label` 例:
 
 ```txt
 2026-06-19: 達成率 80%
-2026-06-20: 未確定または対象なし
+2026-06-20: 達成率 0%
+2026-06-21: 未確定または対象なし
 ```
 
 `completionRate: null` の理由は、当日未確定と対象習慣なしを API 上区別しないため、UI でも同一表示にする。
@@ -219,7 +250,7 @@ Activity Log のセルクリック操作は提供しない。各セルには日�
 | 項目 | 内容 |
 | --- | --- |
 | セクションタイトル | `今日の習慣` |
-| 完了数サマリー | `3 / 5 completed` |
+| 完了数サマリー | `3 / 5 完了` |
 | 追加操作 | `+ タスク追加` |
 | 一覧 | active habit のカード一覧 |
 
@@ -230,12 +261,11 @@ completedCount = habits.filter((habit) => habit.isCompletedToday).length;
 totalCount = habits.length;
 ```
 
-対象習慣が 0 件の場合は空状態を表示する。
+対象習慣が 0 件の場合は空状態を表示する。`今日の習慣` セクションの追加 CTA は見出し側の `+ タスク追加` の 1 つだけとし、空状態の本文には追加 CTA を重複表示しない。0 件時に `0 / 0 完了` を表示する必要はない。
 
 ```txt
 今日の習慣はまだありません。
 まずは小さな習慣を1つ追加しましょう。
-[タスク追加]
 ```
 
 ## 習慣カード
@@ -260,7 +290,7 @@ flowchart LR
 
 | 項目 | 表示 |
 | --- | --- |
-| `emoji` | 未設定時はプレースホルダーまたは非表示 |
+| `emoji` | 未設定時はプレースホルダーを補わず非表示 |
 | `name` | 習慣名 |
 | `currentStreak` | 現在の連続達成日数 |
 | `maxStreak` | 過去最高の連続達成日数 |
@@ -271,7 +301,7 @@ flowchart LR
 | 要素 | 表示 |
 | --- | --- |
 | メイン | `📚 読書する` |
-| ストリーク | `Current streak: 3 days / Best: 14 days` |
+| ストリーク | `現在 3日 ・ 最長 14日` |
 | 完了操作 | `達成する` |
 | メニュー | `編集` / `アーカイブ` |
 
@@ -280,21 +310,33 @@ flowchart LR
 | 要素 | 表示 |
 | --- | --- |
 | メイン | `📚 読書する` |
-| ストリーク | `Current streak: 4 days / Best: 14 days` |
-| 完了操作 | `達成済み` disabled |
+| ストリーク | `現在 4日 ・ 最長 14日` |
+| 完了操作 | `✓ 達成済み` disabled |
 | メニュー | `編集` / `アーカイブ` |
 
 達成済み状態では:
 
 - 完了ボタンを disabled 表示にする
+- カード全体を淡い緑系の背景・境界などで達成済みと示す。カード全体の opacity を大きく下げず、本文と操作の可読性を保つ
 - `POST /api/habits/:id/complete` を再実行しない
 - 二重達成エラーを通常導線では発生させない
+
+### 操作中状態と同時操作
+
+- complete のリクエスト中は、そのカードだけを `達成しています…` と disabled にし、二重送信を防ぐ。別の習慣は操作可能とする。
+- 同一 habit の complete / edit / archive は通常 UI から同時に開始させない。mutation の pending 状態を同一 habit 間で共有検知し、操作メニュー、完了操作、各 Dialog の送信を適切に無効化する。
+- 追加、編集、アーカイブの Dialog は送信中、入力、送信、キャンセルを disabled にし、Esc と外側クリックによる close も抑止する。送信中の文言はそれぞれ `追加しています…`、`保存しています…`、`アーカイブしています…` とする。
+- API 失敗時は Dialog を閉じず、入力内容と Dialog 内エラーを維持する。
+- 通常状態の Cancel、Esc、外側クリックによる close では、フォーム値とエラーを reset する。次回の追加 Dialog は空フォーム、編集 Dialog は選択した習慣の最新の `name` / `emoji` を初期値とする。
+- Dialog を通常 close または成功で閉じた後は、追加 Dialog では追加ボタン、編集・アーカイブ Dialog では操作メニューの適切な起点へ focus を戻す。
 
 ## 習慣追加 Dialog
 
 ### 起動
 
 `今日の習慣` セクションの `タスク追加` ボタンから開く。
+
+Dialog を開いた直後は、習慣名 input を initial focus とする。
 
 ### フォーム構造
 
@@ -326,7 +368,9 @@ flowchart TB
 | 絵文字ではない文字が入力された | `絵文字を1つだけ入力してください` |
 | 作成上限 | `これ以上、習慣を作成できません` |
 
-emoji のクライアントバリデーションはサーバー側の判定と同等にし、単純な文字数ではなくグラフェムクラスタ単位で判定する。
+クライアントとサーバーで別々に判定を実装せず、`Intl.Segmenter` によるグラフェム数と RGI Emoji 判定を含む pure な shared validation helper を両者で再利用する。server の既存 validation semantics は変更しない。習慣名は `trim` 後に空白のみ不可・最大 50 grapheme、絵文字は空文字または RGI Emoji 1 grapheme とする。HTML の `maxLength` は authoritative validation にせず、ZWJ や skin tone 付き emoji を壊さない。
+
+バリデーションエラーは submit 時に表示し、該当フィールドの編集後には適切に解消する。typing 中に過度なエラー表示は行わず、クライアントバリデーションに失敗した場合は API を呼ばない。
 
 サーバーから `INVALID_REQUEST` が返った場合は、Dialog 内に `message` を表示する。
 
@@ -386,7 +430,7 @@ flowchart TB
 | 絵文字が複数文字 | `絵文字は1つだけ入力してください` |
 | 絵文字ではない文字が入力された | `絵文字を1つだけ入力してください` |
 
-emoji のクライアントバリデーションはサーバー側の判定と同等にし、単純な文字数ではなくグラフェムクラスタ単位で判定する。
+追加 Dialog と同じ shared validation helper を再利用する。HTML の `maxLength` だけで検証せず、名前は最大 50 grapheme、絵文字は空文字または RGI Emoji 1 grapheme とする。
 
 サーバーから `INVALID_REQUEST` が返った場合は、Dialog 内に `message` を表示する。
 
@@ -451,7 +495,7 @@ Activity Log の当日 `completionRate` は API 仕様上 `null` のため、達
 | Error code | UI |
 | --- | --- |
 | `HABIT_ARCHIVED` | `この習慣はすでにアーカイブされています` を表示し、ホームデータを再取得 |
-| `HABIT_ALREADY_COMPLETED_TODAY` | `この習慣は本日すでに達成済みです` を表示し、対象カードを達成済みに寄せる |
+| `HABIT_ALREADY_COMPLETED_TODAY` | `この習慣は本日すでに達成済みです` を表示し、ホームデータを再取得した結果を正とする |
 | `HABIT_NOT_FOUND` | `習慣が見つかりません` を表示し、ホームデータを再取得 |
 | `UNAUTHORIZED` | ログイン前表示へ戻す |
 | `INTERNAL_SERVER_ERROR` | `処理に失敗しました。時間をおいて再試行してください` を表示 |
@@ -486,6 +530,8 @@ sequenceDiagram
 アーカイブ済み習慣の復元 UI はありません。
 ```
 
+画面文言を「削除」に置き換えず、MVP では復元 UI を追加しない。API は冪等であるため、すでにアーカイブ済みの habit に対する `200 OK` も成功として扱う。
+
 ## エラー表示
 
 ### 初期表示エラー
@@ -499,6 +545,8 @@ sequenceDiagram
 
 `401 UNAUTHORIZED` の場合はログイン前表示に戻す。
 
+初回ロードに失敗して表示可能なデータがない場合だけ、上記の page-level error を表示する。すでにキャッシュ済みのホームデータがあり、window focus や reconnect 等による background refetch だけが失敗した場合は、既存の Activity Log と習慣一覧を消さない。画面内の非ブロッキングな inline message または banner で `最新データの取得に失敗しました。` と再取得可能であることを知らせる。
+
 ### 操作エラー
 
 追加・編集・達成・アーカイブの操作エラーは、以下のルールで表示する。
@@ -507,9 +555,21 @@ sequenceDiagram
 | --- | --- |
 | 入力不正 | Dialog 内 |
 | 上限到達 | AddHabitDialog 内 |
-| 達成失敗 | Toast または HabitCard 付近の Inline message |
-| 編集対象が存在しない | Toast 表示後に `GET /api/home` を再取得 |
-| アーカイブ対象が存在しない | Toast 表示後に `GET /api/home` を再取得 |
+| 達成失敗 | HabitCard 付近の inline message |
+| 編集対象が存在しない | Dialog 内 message を表示後に `GET /api/home` を再取得 |
+| アーカイブ対象が存在しない | Dialog 内 message を表示後に `GET /api/home` を再取得 |
+
+新しい Toast dependency は追加しない。エラー表示は page-level error、Dialog 内 error、HabitCard 付近の inline error で完結させる。エラー文言は原則として API の `message` を使うか、次の日本語文言を使用する。
+
+| 条件 | 表示文言 |
+| --- | --- |
+| `HABIT_ARCHIVED` | `この習慣はすでにアーカイブされています` |
+| `HABIT_ALREADY_COMPLETED_TODAY` | `この習慣は本日すでに達成済みです` |
+| `HABIT_NOT_FOUND` | `習慣が見つかりません` |
+| `INTERNAL_SERVER_ERROR` | `処理に失敗しました。時間をおいて再試行してください` |
+| network error | `通信に失敗しました。接続を確認して再試行してください` |
+
+`HABIT_ARCHIVED`、`HABIT_NOT_FOUND`、`HABIT_ALREADY_COMPLETED_TODAY` は、クライアント表示が DB より古い可能性が高い stale-state error として扱う。ユーザー向けエラーを表示したうえで `['home']` を invalidate / refetch し、ストリークや完了状態をクライアント側で推測して補正しない。再同期後に解消した stale-state error は表示し続けない。
 
 ## レスポンシブ方針
 
@@ -529,6 +589,10 @@ sequenceDiagram
 - 習慣カードの操作ボタンはカード幅いっぱいに配置する
 - 習慣カードのメニューはカード右上に配置する
 
+Activity Log は mobile では横スクロールとし、最初の表示時だけ今日側（右端）を初期表示する。ユーザーが過去へスクロールした後、background refetch ごとに右端へ戻してはならない。
+
+Dialog は small viewport でも viewport 外へはみ出さない寸法とし、必要な場合は Dialog 内をスクロール可能にする。
+
 ## アクセシビリティ
 
 - すべてのボタンは keyboard 操作可能にする
@@ -537,6 +601,9 @@ sequenceDiagram
 - 達成済みボタンは disabled と視覚表現の両方で状態を示す
 - Activity Log は色だけに依存せず、セルに `aria-label` を付与する
 - HabitActionMenu は `aria-label` で対象習慣名を含める
+- Dialog には title と input の label を関連付け、バリデーションエラーと入力欄も関連付ける。送信中であることも支援技術から認識可能にする。
+- エラーを動的に表示する領域には適切な `role="alert"` を付与する。操作中・disabled・完了済みの状態は色だけに依存しない。
+- ライトテーマでも十分な文字色・背景色のコントラストと visible focus ring を確保する。
 
 HabitActionMenu の `aria-label` 例:
 
@@ -588,7 +655,7 @@ HabitActionMenu の `aria-label` 例:
 - 成功後、対象カードが達成済み表示になる
 - 成功後、完了数サマリーが更新される
 - 送信中の二重クリックを防止する
-- `HABIT_ALREADY_COMPLETED_TODAY` ではカードを達成済みに寄せる
+- `HABIT_ALREADY_COMPLETED_TODAY` ではホームデータを再取得し、サーバーから返る状態を正とする
 
 ### アーカイブ
 
@@ -604,7 +671,9 @@ HabitActionMenu の `aria-label` 例:
 - `PATCH /api/habits/:id` 成功後は `GET /api/home` を再取得する
 - `PATCH /api/habits/:id/archive` 成功後は `GET /api/home` を再取得する
 - `POST /api/habits/:id/complete` 成功後はレスポンスの `habit` summary で対象カードを更新する
+- 達成成功時の更新は optimistic update ではなく、サーバー成功後の response-driven update とする。今日の `completionRate` は API 仕様上 `null` のため、complete 成功時に Activity Log をクライアント側で書き換えない。
 - TanStack Query を使う場合、ホームデータの query key は `["home"]` とする
 - `GET /api/home` は Lazy Update を伴うため、stale time は `0` とする
-- クライアントは JST 00:00 到達時に `["home"]` を invalidate / refetch し、日付跨ぎ後の `isCompletedToday` と Lazy Update 済み streak を反映する
+- クライアントは JST 00:00 到達時に `["home"]` を invalidate / refetch し、日付跨ぎ後の `isCompletedToday` と Lazy Update 済み streak を反映する。client clock は refetch を予約するタイミングだけに用い、今日、`daily_record` の日付、期限、streak の業務判定には使わない。
+- JST の次の 00:00 に 1 回だけ timer を設定し、発火後は invalidate / refetch 完了後にさらに翌日の timer を再設定する。unmount、認証状態の切替、timer の再設定時は以前の timer を cleanup する。
 - window focus / reconnect 時にも `GET /api/home` を再取得し、長時間開きっぱなしの表示ずれを補正する
