@@ -1,4 +1,5 @@
 import { ApiError } from "~/lib/api/errors";
+import { validateHabitEmoji, validateHabitName } from "./habit-validation";
 import type {
 	ParsedCreateHabitRequest,
 	UpdateHabitRequest,
@@ -9,11 +10,6 @@ export type {
 	UpdateHabitRequest,
 } from "./habits.api-contract";
 
-const graphemeSegmenter = new Intl.Segmenter("ja", {
-	granularity: "grapheme",
-});
-// biome-ignore lint/complexity/useRegexLiterals: ES2022 targetでvフラグを使用するためコンストラクタ形式にする。
-const emojiPattern = new RegExp("^\\p{RGI_Emoji}$", "v");
 const createHabitFields = new Set(["name", "emoji"]);
 const updateHabitFields = new Set(["name", "emoji"]);
 
@@ -23,14 +19,6 @@ function invalidRequest(cause?: unknown): never {
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function countGraphemes(value: string): number {
-	return [...graphemeSegmenter.segment(value)].length;
-}
-
-function isSingleEmojiGrapheme(value: string): boolean {
-	return emojiPattern.test(value);
 }
 
 export function parseCreateHabitRequest(
@@ -46,20 +34,17 @@ export function parseCreateHabitRequest(
 		return invalidRequest();
 	}
 
-	const name = body.name.trim();
-	if (name === "" || countGraphemes(name) > 50) {
+	const name = validateHabitName(body.name);
+	if (!name.isValid) {
 		return invalidRequest();
 	}
 
 	const emoji = body.emoji === undefined ? "" : body.emoji;
-	if (
-		typeof emoji !== "string" ||
-		(emoji !== "" && !isSingleEmojiGrapheme(emoji))
-	) {
+	if (typeof emoji !== "string" || !validateHabitEmoji(emoji).isValid) {
 		return invalidRequest();
 	}
 
-	return { name, emoji };
+	return { name: name.value, emoji };
 }
 
 export function parseUpdateHabitRequest(body: unknown): UpdateHabitRequest {
@@ -80,17 +65,17 @@ export function parseUpdateHabitRequest(body: unknown): UpdateHabitRequest {
 		if (typeof body.name !== "string") {
 			return invalidRequest();
 		}
-		const name = body.name.trim();
-		if (name === "" || countGraphemes(name) > 50) {
+		const name = validateHabitName(body.name);
+		if (!name.isValid) {
 			return invalidRequest();
 		}
-		request.name = name;
+		request.name = name.value;
 	}
 
 	if ("emoji" in body) {
 		if (
 			typeof body.emoji !== "string" ||
-			(body.emoji !== "" && !isSingleEmojiGrapheme(body.emoji))
+			!validateHabitEmoji(body.emoji).isValid
 		) {
 			return invalidRequest();
 		}
