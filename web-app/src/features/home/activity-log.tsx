@@ -3,6 +3,15 @@ import type { ActivityLogEntry } from "./home.contract";
 
 const DAYS_PER_WEEK = 7;
 const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
+const WEEKDAY_ROW_IDS = [
+	"sunday",
+	"monday",
+	"tuesday",
+	"wednesday",
+	"thursday",
+	"friday",
+	"saturday",
+] as const;
 
 export type ActivityLogLevel =
 	| "null"
@@ -195,7 +204,8 @@ export function ActivityLog({ entries }: { entries: ActivityLogEntry[] }) {
 			<div className="flex gap-2">
 				<div
 					aria-hidden="true"
-					className="mt-5 grid h-[4.625rem] grid-rows-7 gap-[3px] text-[0.625rem] leading-[0.625rem] text-stone-500"
+					className="mt-[13px] grid h-[5.5rem] grid-rows-[repeat(7,0.625rem)] gap-[3px] text-[0.625rem] leading-[0.625rem] text-stone-500"
+					data-testid="activity-log-weekday-labels"
 				>
 					<span className="row-start-2">月</span>
 					<span className="row-start-4">水</span>
@@ -209,7 +219,7 @@ export function ActivityLog({ entries }: { entries: ActivityLogEntry[] }) {
 					<div className="min-w-[38rem]">
 						<div
 							aria-hidden="true"
-							className="mb-1 grid h-3 gap-[3px] text-[0.625rem] leading-3 text-stone-500"
+							className="mb-[3px] grid h-2.5 gap-[3px] text-[0.625rem] leading-2.5 text-stone-500"
 							style={{
 								gridTemplateColumns: `repeat(${weeks.length}, 0.625rem)`,
 							}}
@@ -229,34 +239,50 @@ export function ActivityLog({ entries }: { entries: ActivityLogEntry[] }) {
 							aria-colcount={weeks.length}
 							aria-label="直近365日の達成率"
 							aria-rowcount={DAYS_PER_WEEK}
-							className="grid gap-[3px]"
+							className="grid grid-rows-[repeat(7,0.625rem)] gap-[3px]"
+							data-testid="activity-log-grid"
 							role="grid"
-							style={{
-								gridTemplateColumns: `repeat(${weeks.length}, 0.625rem)`,
-							}}
 						>
-							{weeks.map((week) => (
-								<div className="grid grid-rows-7 gap-[3px]" key={week.id}>
-									{week.cells.map((cell) =>
-										cell.kind === "placeholder" ? (
+							{WEEKDAY_ROW_IDS.map((rowId, rowIndex) => (
+								/* biome-ignore lint/a11y/useSemanticElements lint/a11y/useFocusableInteractive: 非操作の可視化グリッドで、行自体をTab stopにしない。 */
+								<div
+									aria-rowindex={rowIndex + 1}
+									className="grid h-2.5 gap-[3px]"
+									data-activity-week-row={rowIndex + 1}
+									key={rowId}
+									role="row"
+									style={{
+										gridTemplateColumns: `repeat(${weeks.length}, 0.625rem)`,
+									}}
+								>
+									{weeks.map((week, columnIndex) => {
+										const cell = week.cells[rowIndex];
+										if (!cell) {
+											return null;
+										}
+
+										return cell.kind === "placeholder" ? (
 											<div
 												aria-hidden="true"
 												className="size-2.5"
 												data-activity-placeholder="true"
 												key={`${week.id}-${cell.id}`}
+												role="presentation"
 											/>
 										) : (
 											/* biome-ignore lint/a11y/useFocusableInteractive lint/a11y/useSemanticElements: セルは仕様上、情報提示専用でTab stopにしない。 */
 											<div
 												aria-label={getActivityLogAriaLabel(cell.entry)}
-												className="size-2.5 rounded-[2px] outline outline-1 outline-transparent"
+												aria-colindex={columnIndex + 1}
+												aria-rowindex={rowIndex + 1}
+												className="size-2.5 rounded-[2px] outline outline-1"
 												data-activity-level={cell.level}
 												key={cell.entry.date}
 												role="gridcell"
 												title={getActivityLogAriaLabel(cell.entry)}
 											/>
-										),
-									)}
+										);
+									})}
 								</div>
 							))}
 						</div>
@@ -274,7 +300,7 @@ function ActivityLogLegend() {
 				["null", "zero", "level-1", "level-2", "level-3", "level-4"] as const
 			).map((level) => (
 				<span
-					className="size-2.5 rounded-[2px] outline outline-1 outline-transparent"
+					className="size-2.5 rounded-[2px] outline outline-1"
 					data-activity-level={level}
 					key={level}
 				/>

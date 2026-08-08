@@ -13,25 +13,31 @@ body {
 }
 
 [data-activity-level="null"] {
-	background-color: #e7e5e4;
+	background-color: #f5f5f4;
+	outline-color: #d6d3d1;
 }
 
 [data-activity-level="zero"] {
-	background-color: #cbd5d1;
+	background-color: #9ca3af;
+	outline-color: #6b7280;
 }
 
 [data-activity-level="level-1"] {
-	background-color: #bbf7d0;
+	background-color: #dcfce7;
+	outline-color: #86efac;
 }
 
 [data-activity-level="level-2"] {
-	background-color: #86efac;
+	background-color: #4ade80;
+	outline-color: #22c55e;
 }
 
 [data-activity-level="level-3"] {
-	background-color: #22c55e;
+	background-color: #15803d;
+	outline-color: #166534;
 }
 
 [data-activity-level="level-4"] {
-	background-color: #15803d;
+	background-color: #052e16;
+	outline-color: #022c22;
 }

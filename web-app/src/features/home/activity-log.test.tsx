@@ -25,10 +25,23 @@ describe("ActivityLog", () => {
 
 		render(<ActivityLog entries={entries} />);
 		const grid = screen.getByRole("grid", { name: "直近365日の達成率" });
+		const rows = within(grid).getAllByRole("row");
 		expect(within(grid).getAllByRole("gridcell")).toHaveLength(365);
-		expect(
-			document.querySelectorAll("[data-activity-placeholder]"),
-		).toHaveLength(6);
+		expect(rows).toHaveLength(7);
+		expect(Array.from(grid.children)).toEqual(rows);
+		for (const [index, row] of rows.entries()) {
+			expect(row).toHaveAttribute("aria-rowindex", String(index + 1));
+		}
+		const placeholders = document.querySelectorAll(
+			"[data-activity-placeholder]",
+		);
+		expect(placeholders).toHaveLength(6);
+		for (const placeholder of placeholders) {
+			expect(placeholder).toHaveAttribute("aria-hidden", "true");
+			expect(placeholder).toHaveAttribute("role", "presentation");
+			expect(placeholder).not.toHaveAttribute("aria-label");
+			expect(placeholder).not.toHaveAttribute("title");
+		}
 		expect(grid).toHaveAttribute("aria-rowcount", "7");
 		expect(grid).toHaveAttribute("aria-colcount", "53");
 	});
@@ -43,6 +56,19 @@ describe("ActivityLog", () => {
 			kind: "data",
 			entry: { date: "2024-06-01" },
 		});
+
+		render(<ActivityLog entries={entries} />);
+		const firstDataCell = screen.getByRole("gridcell", {
+			name: "2024-06-01: 未確定または対象なし",
+		});
+		expect(firstDataCell).toHaveAttribute("aria-rowindex", "7");
+		expect(firstDataCell).toHaveAttribute("aria-colindex", "1");
+		const firstRow = within(
+			screen.getByRole("grid", { name: "直近365日の達成率" }),
+		).getAllByRole("row")[0];
+		expect(firstRow).toContainElement(
+			document.querySelector('[data-activity-placeholder="true"]'),
+		);
 	});
 
 	it("null・zero・4段階の達成率境界を区別する", () => {
@@ -89,6 +115,40 @@ describe("ActivityLog", () => {
 			screen.getAllByTestId("activity-log-month-label")[0],
 		).toHaveTextContent("1月");
 		expect(screen.getByText("2月")).toBeInTheDocument();
+		expect(screen.getByTestId("activity-log-weekday-labels")).toHaveClass(
+			"mt-[13px]",
+			"h-[5.5rem]",
+			"grid-rows-[repeat(7,0.625rem)]",
+			"gap-[3px]",
+		);
+		expect(screen.getByTestId("activity-log-grid")).toHaveClass(
+			"grid-rows-[repeat(7,0.625rem)]",
+			"gap-[3px]",
+		);
+	});
+
+	it("null・zero・4段階のセルを意味別のpalette hookで描画する", () => {
+		const paletteEntries = makeEntries("2026-01-04", 365).map(
+			(entry, index) => ({
+				...entry,
+				completionRate: [null, 0, 0.25, 0.5, 0.75, 1][index % 6] ?? null,
+			}),
+		);
+		render(<ActivityLog entries={paletteEntries} />);
+
+		for (const level of [
+			"null",
+			"zero",
+			"level-1",
+			"level-2",
+			"level-3",
+			"level-4",
+		]) {
+			const cell = document.querySelector(
+				`[role="gridcell"][data-activity-level="${level}"]`,
+			);
+			expect(cell).toHaveClass("outline", "outline-1");
+		}
 	});
 
 	it("cellをTab stopやクリック可能な要素にしない", () => {
