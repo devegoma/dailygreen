@@ -29,7 +29,12 @@ export function homeQueryOptions({ enabled, onUnauthorized }: HomeQueryConfig) {
 				return await getHomeData(signal);
 			} catch (error) {
 				if (error instanceof ApiClientError && error.status === 401) {
-					await onUnauthorized?.();
+					// セッション更新の失敗で、API が返した 401 を別のエラーに置き換えない。
+					try {
+						await onUnauthorized?.();
+					} catch {
+						// UI は元の ApiClientError を見て未認証状態へ遷移できる。
+					}
 				}
 				throw error;
 			}
@@ -46,12 +51,26 @@ export async function clearHomeCache(queryClient: QueryClient): Promise<void> {
 /** create / edit / archive 後にサーバーのホーム状態を取り直す。 */
 export async function invalidateAndRefetchHome(
 	queryClient: QueryClient,
-): Promise<void> {
+): Promise<boolean> {
 	await queryClient.invalidateQueries({
 		queryKey: homeQueryKey,
 		refetchType: "none",
 	});
-	await queryClient.refetchQueries({ queryKey: homeQueryKey, type: "active" });
+
+	// observer がなく GET を発行していないケースは再同期済みとみなさない。
+	const hasActiveHomeQuery = queryClient
+		.getQueryCache()
+		.findAll({ queryKey: homeQueryKey, exact: true })
+		.some((query) => query.isActive());
+	try {
+		await queryClient.refetchQueries(
+			{ queryKey: homeQueryKey, type: "active" },
+			{ throwOnError: true },
+		);
+		return hasActiveHomeQuery;
+	} catch {
+		return false;
+	}
 }
 
 /**

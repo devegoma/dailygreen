@@ -3,7 +3,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HomeDataResponse } from "~/features/home/home.contract";
-import { homeQueryKey, homeQueryOptions } from "~/features/home/home.query";
+import {
+	homeQueryKey,
+	homeQueryOptions,
+	useHomeQuery,
+} from "~/features/home/home.query";
 import {
 	habitMutationKey,
 	isHabitMutationPending,
@@ -100,10 +104,193 @@ describe("habit mutations", () => {
 		expect(updated?.activityLog).toBe(original.activityLog);
 	});
 
-	it("stale-state error後はserverを正としてhomeを再取得する", async () => {
+	it("complete中に別操作が開始したhome refetchをcancelせず最終server stateを反映する", async () => {
 		const queryClient = createQueryClient();
-		const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
-		const refetchQueries = vi.spyOn(queryClient, "refetchQueries");
+		const finalHome = {
+			...homeData,
+			habits: [
+				{
+					...homeData.habits[0],
+					isCompletedToday: true,
+					currentStreak: 2,
+					maxStreak: 4,
+				},
+				...homeData.habits.slice(1),
+				{
+					id: "habit-3",
+					name: "散歩",
+					emoji: "🚶",
+					currentStreak: 0,
+					maxStreak: 0,
+					isCompletedToday: false,
+				},
+			],
+		};
+		let resolveComplete: ((response: Response) => void) | undefined;
+		let resolveRefetch: ((response: Response) => void) | undefined;
+		let refetchAborted = false;
+		let homeRequestCount = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string, init?: RequestInit) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					if (homeRequestCount === 1) {
+						return Promise.resolve(jsonResponse(homeData));
+					}
+					return new Promise<Response>((resolve, reject) => {
+						resolveRefetch = resolve;
+						init?.signal?.addEventListener("abort", () => {
+							refetchAborted = true;
+							reject(new DOMException("Aborted", "AbortError"));
+						});
+					});
+				}
+				if (path === "/api/habits/habit-1/complete") {
+					return new Promise<Response>((resolve) => {
+						resolveComplete = resolve;
+					});
+				}
+				return Promise.resolve(jsonResponse(habitResponse));
+			}),
+		);
+		const home = renderHook(
+			() => useHomeQuery({ enabled: true, userId: "user-a" }),
+			{ wrapper: wrapper(queryClient) },
+		);
+		await waitFor(() => expect(home.result.current.data).toEqual(homeData));
+		const complete = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		const create = renderHook(() => useCreateHabitMutation(), {
+			wrapper: wrapper(queryClient),
+		});
+
+		act(() => {
+			complete.result.current.mutate();
+		});
+		await waitFor(() => expect(resolveComplete).toBeTypeOf("function"));
+		const createExecution = create.result.current.mutateAsync({
+			name: "散歩",
+			emoji: "🚶",
+		});
+		await waitFor(() => expect(resolveRefetch).toBeTypeOf("function"));
+		resolveComplete?.(jsonResponse(completeResponse));
+		await waitFor(() => expect(complete.result.current.isSuccess).toBe(true));
+
+		expect(refetchAborted).toBe(false);
+		resolveRefetch?.(jsonResponse(finalHome));
+		await createExecution;
+		await waitFor(() => expect(home.result.current.data).toEqual(finalHome));
+	});
+
+	it("stale-state error後はactiveなGET成功時だけerrorをreset可能にする", async () => {
+		const queryClient = createQueryClient();
+		let resolveSynchronization: ((response: Response) => void) | undefined;
+		let homeRequestCount = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					if (homeRequestCount === 1) {
+						return Promise.resolve(jsonResponse(homeData));
+					}
+					return new Promise<Response>((resolve) => {
+						resolveSynchronization = resolve;
+					});
+				}
+				return Promise.resolve(
+					jsonResponse(
+						{
+							code: "HABIT_ALREADY_COMPLETED_TODAY",
+							message: "達成済みです。",
+						},
+						409,
+					),
+				);
+			}),
+		);
+		renderHook(() => useHomeQuery({ enabled: true, userId: "user-a" }), {
+			wrapper: wrapper(queryClient),
+		});
+		const { result } = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(1));
+
+		await expect(result.current.mutateAsync()).rejects.toMatchObject({
+			code: "HABIT_ALREADY_COMPLETED_TODAY",
+		});
+		await waitFor(() =>
+			expect(result.current.error).toMatchObject({
+				code: "HABIT_ALREADY_COMPLETED_TODAY",
+			}),
+		);
+		let reset = false;
+		act(() => {
+			reset = result.current.resetStaleStateError();
+		});
+		expect(reset).toBe(false);
+		await waitFor(() => expect(resolveSynchronization).toBeTypeOf("function"));
+		resolveSynchronization?.(jsonResponse(homeData));
+		await waitFor(() =>
+			expect(queryClient.getQueryData(homeQueryKey)).toEqual(homeData),
+		);
+		act(() => {
+			reset = result.current.resetStaleStateError();
+		});
+		expect(reset).toBe(true);
+		await waitFor(() => expect(result.current.error).toBeNull());
+	});
+
+	it("stale-state error後のGET失敗時はerrorをreset可能にしない", async () => {
+		const queryClient = createQueryClient();
+		let homeRequestCount = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					return Promise.resolve(
+						jsonResponse(
+							homeRequestCount === 1 ? homeData : { message: "failed" },
+							homeRequestCount === 1 ? 200 : 500,
+						),
+					);
+				}
+				return Promise.resolve(
+					jsonResponse(
+						{ code: "HABIT_NOT_FOUND", message: "見つかりません。" },
+						404,
+					),
+				);
+			}),
+		);
+		renderHook(() => useHomeQuery({ enabled: true, userId: "user-a" }), {
+			wrapper: wrapper(queryClient),
+		});
+		const { result } = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(1));
+
+		await expect(result.current.mutateAsync()).rejects.toMatchObject({
+			code: "HABIT_NOT_FOUND",
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(2));
+		await waitFor(() =>
+			expect(result.current.error).toMatchObject({ status: 404 }),
+		);
+		let reset = false;
+		act(() => {
+			reset = result.current.resetStaleStateError();
+		});
+		expect(reset).toBe(false);
+	});
+
+	it("stale-state error時にactiveなhome queryがなければerrorをreset可能にしない", async () => {
+		const queryClient = createQueryClient();
 		vi.stubGlobal(
 			"fetch",
 			fetchMock.mockResolvedValueOnce(
@@ -120,14 +307,6 @@ describe("habit mutations", () => {
 		await expect(result.current.mutateAsync()).rejects.toMatchObject({
 			code: "HABIT_ALREADY_COMPLETED_TODAY",
 		});
-		expect(invalidateQueries).toHaveBeenCalledWith({
-			queryKey: homeQueryKey,
-			refetchType: "none",
-		});
-		expect(refetchQueries).toHaveBeenCalledWith({
-			queryKey: homeQueryKey,
-			type: "active",
-		});
 		await waitFor(() =>
 			expect(result.current.error).toMatchObject({
 				code: "HABIT_ALREADY_COMPLETED_TODAY",
@@ -137,8 +316,37 @@ describe("habit mutations", () => {
 		act(() => {
 			reset = result.current.resetStaleStateError();
 		});
-		expect(reset).toBe(true);
-		await waitFor(() => expect(result.current.error).toBeNull());
+		expect(reset).toBe(false);
+	});
+
+	it("mutationの401でsession callbackが失敗しても元のApiClientErrorを保持する", async () => {
+		const queryClient = createQueryClient();
+		const onUnauthorized = vi
+			.fn()
+			.mockRejectedValue(new Error("session failed"));
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockResolvedValueOnce(
+				jsonResponse(
+					{ code: "UNAUTHORIZED", message: "ログインが必要です。" },
+					401,
+				),
+			),
+		);
+		const { result } = renderHook(
+			() => useCreateHabitMutation({ onUnauthorized }),
+			{ wrapper: wrapper(queryClient) },
+		);
+
+		await expect(
+			result.current.mutateAsync({ name: "読書", emoji: "📚" }),
+		).rejects.toMatchObject({
+			name: "ApiClientError",
+			status: 401,
+			code: "UNAUTHORIZED",
+		});
+		await waitFor(() => expect(onUnauthorized).toHaveBeenCalledTimes(1));
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("同一habitのmutation keyは共通prefixでpendingを検知できる", async () => {

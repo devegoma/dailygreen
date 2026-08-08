@@ -60,6 +60,34 @@ describe("homeQueryOptions", () => {
 		expect(queryClient.getQueryData(homeQueryKey)).toBeUndefined();
 	});
 
+	it("401時にsession callbackが失敗しても元のApiClientErrorを保持してretryしない", async () => {
+		const queryClient = createQueryClient();
+		const onUnauthorized = vi
+			.fn()
+			.mockRejectedValue(new Error("session failed"));
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockResolvedValueOnce(
+				jsonResponse(
+					{ code: "UNAUTHORIZED", message: "ログインが必要です。" },
+					401,
+				),
+			),
+		);
+
+		await expect(
+			queryClient.fetchQuery(
+				homeQueryOptions({ enabled: true, onUnauthorized }),
+			),
+		).rejects.toMatchObject({
+			name: "ApiClientError",
+			status: 401,
+			code: "UNAUTHORIZED",
+		});
+		expect(onUnauthorized).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
 	it("session identity切替中は旧homeを表示せずcacheを破棄する", async () => {
 		const queryClient = createQueryClient();
 		queryClient.setQueryData(homeQueryKey, homeData);
@@ -101,10 +129,13 @@ describe("home cache utility", () => {
 			queryKey: homeQueryKey,
 			refetchType: "none",
 		});
-		expect(refetchQueries).toHaveBeenCalledWith({
-			queryKey: homeQueryKey,
-			type: "active",
-		});
+		expect(refetchQueries).toHaveBeenCalledWith(
+			{
+				queryKey: homeQueryKey,
+				type: "active",
+			},
+			{ throwOnError: true },
+		);
 	});
 });
 

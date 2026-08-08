@@ -59,10 +59,13 @@ describe("JST midnight refresh", () => {
 			queryKey: homeQueryKey,
 			refetchType: "none",
 		});
-		expect(refetchQueries).toHaveBeenCalledWith({
-			queryKey: homeQueryKey,
-			type: "active",
-		});
+		expect(refetchQueries).toHaveBeenCalledWith(
+			{
+				queryKey: homeQueryKey,
+				type: "active",
+			},
+			{ throwOnError: true },
+		);
 		unmount();
 	});
 });

@@ -79,18 +79,27 @@ async function synchronizeMutationError(
 	queryClient: QueryClient,
 	error: unknown,
 	onUnauthorized?: () => void | Promise<void>,
-): Promise<void> {
+): Promise<boolean> {
 	if (!(error instanceof ApiClientError)) {
-		return;
+		return false;
 	}
 	if (error.status === 401) {
-		await clearHomeCache(queryClient);
-		await onUnauthorized?.();
-		return;
+		try {
+			await clearHomeCache(queryClient);
+		} catch {
+			// 元の mutation error はセッション更新処理の失敗で置き換えない。
+		}
+		try {
+			await onUnauthorized?.();
+		} catch {
+			// UI は元の 401 を使って未認証状態へ遷移できる。
+		}
+		return false;
 	}
 	if (isStaleStateError(error)) {
-		await invalidateAndRefetchHome(queryClient);
+		return invalidateAndRefetchHome(queryClient);
 	}
+	return false;
 }
 
 function applyCompletedHabit(
@@ -125,8 +134,9 @@ export function useCreateHabitMutation(
 		mutationKey: ["habit", "create"],
 		mutationFn: (request: CreateHabitRequest) => createHabitRequest(request),
 		onSuccess: () => invalidateAndRefetchHome(queryClient),
-		onError: (error) =>
-			synchronizeMutationError(queryClient, error, options.onUnauthorized),
+		onError: (error) => {
+			void synchronizeMutationError(queryClient, error, options.onUnauthorized);
+		},
 	});
 }
 
@@ -141,14 +151,15 @@ export function useUpdateHabitMutation(
 		mutationFn: (request: UpdateHabitRequest) =>
 			updateHabitRequest(habitId, request),
 		onSuccess: () => invalidateAndRefetchHome(queryClient),
-		onError: async (error) => {
+		onError: (error) => {
 			staleStateSynchronized.current = false;
-			await synchronizeMutationError(
+			void synchronizeMutationError(
 				queryClient,
 				error,
 				options.onUnauthorized,
-			);
-			staleStateSynchronized.current = isStaleStateError(error);
+			).then((synchronized) => {
+				staleStateSynchronized.current = synchronized;
+			});
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
@@ -169,14 +180,15 @@ export function useArchiveHabitMutation(
 		mutationKey: habitMutationKey(habitId, "archive"),
 		mutationFn: () => archiveHabitRequest(habitId),
 		onSuccess: () => invalidateAndRefetchHome(queryClient),
-		onError: async (error) => {
+		onError: (error) => {
 			staleStateSynchronized.current = false;
-			await synchronizeMutationError(
+			void synchronizeMutationError(
 				queryClient,
 				error,
 				options.onUnauthorized,
-			);
-			staleStateSynchronized.current = isStaleStateError(error);
+			).then((synchronized) => {
+				staleStateSynchronized.current = synchronized;
+			});
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(
@@ -197,19 +209,20 @@ export function useCompleteHabitMutation(
 		mutationKey: habitMutationKey(habitId, "complete"),
 		mutationFn: () => completeHabitRequest(habitId),
 		onMutate: () => queryClient.cancelQueries({ queryKey: homeQueryKey }),
-		onSuccess: async (response) => {
-			// 完了前に始まった GET の古い結果で response-driven 更新を上書きさせない。
-			await queryClient.cancelQueries({ queryKey: homeQueryKey });
+		onSuccess: (response) => {
+			// onMutate で完了前の GET は停止済み。ここで再度 cancel すると、
+			// complete 中に別操作が開始した後発の server refetch を止めてしまう。
 			applyCompletedHabit(queryClient, response);
 		},
-		onError: async (error) => {
+		onError: (error) => {
 			staleStateSynchronized.current = false;
-			await synchronizeMutationError(
+			void synchronizeMutationError(
 				queryClient,
 				error,
 				options.onUnauthorized,
-			);
-			staleStateSynchronized.current = isStaleStateError(error);
+			).then((synchronized) => {
+				staleStateSynchronized.current = synchronized;
+			});
 		},
 	});
 	const resetStaleStateError = useStaleStateErrorReset(

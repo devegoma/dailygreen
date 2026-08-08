@@ -62,7 +62,7 @@ export function useJstMidnightHomeRefresh(
 			return;
 		}
 		return scheduleJstMidnightRefresh(() =>
-			invalidateAndRefetchHome(queryClient),
+			invalidateAndRefetchHome(queryClient).then(() => undefined),
 		);
 	}, [enabled, queryClient]);
 }
