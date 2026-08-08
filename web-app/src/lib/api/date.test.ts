@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	addDaysToJstDateString,
 	getJstDateContext,
+	getJstDateStart,
 	toJstDateString,
 	toJstDateTimeString,
 } from "./date";
@@ -29,5 +30,11 @@ describe("JST date utilities", () => {
 	it("JST 日付文字列に日数を加算できる", () => {
 		expect(addDaysToJstDateString("2024-02-28", 1)).toBe("2024-02-29");
 		expect(addDaysToJstDateString("2024-03-01", -1)).toBe("2024-02-29");
+	});
+
+	it("JSTの日付開始を絶対時刻へ変換する", () => {
+		expect(getJstDateStart("2026-07-12").toISOString()).toBe(
+			"2026-07-11T15:00:00.000Z",
+		);
 	});
 });

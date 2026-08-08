@@ -8,12 +8,13 @@ export function handleAuthenticatedApi<TResult>(
 			Awaited<ReturnType<typeof requireAuthenticatedUser>>
 		>,
 	) => TResult | Response | Promise<TResult | Response>,
-	options: { successStatus?: number } = {},
+	options: { successStatus?: number; successHeaders?: HeadersInit } = {},
 ): Promise<Response> {
 	return handleApiRequest({
 		request,
 		authenticate: requireAuthenticatedUser,
 		handler,
 		successStatus: options.successStatus,
+		successHeaders: options.successHeaders,
 	});
 }

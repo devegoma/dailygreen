@@ -29,6 +29,18 @@ describe("handleApiRequest", () => {
 		expect(await response.json()).toEqual({ userId: "user_1" });
 	});
 
+	it("成功レスポンスへ指定されたheadersを付与する", async () => {
+		const response = await handleApiRequest({
+			request: new Request("http://localhost/api/home"),
+			authenticate: async () => ({ id: "user_1" }),
+			handler: async () => ({ habits: [], activityLog: [] }),
+			successHeaders: { "cache-control": "no-store" },
+		});
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+	});
+
 	it("immutableなheadersを持つResponseにもrequest IDを付与する", async () => {
 		const response = await handleApiRequest({
 			request: new Request("http://localhost/api/home"),
