@@ -10,8 +10,8 @@ const globalForPostgres = globalThis as unknown as {
 const queryClient =
 	globalForPostgres.postgresClient ??
 	postgres(env.DATABASE_URL, {
-		// 開発時は HMR での接続枯渇を防ぐため小さく、本番は並行リクエスト用に余裕を持たせる
-		max: env.NODE_ENV === "production" ? 10 : 1,
+		// 開発時は HMR での接続枯渇を防ぐため小さく、本番と統合テストは並行処理を検証できる接続数にする
+		max: env.NODE_ENV === "development" ? 1 : 10,
 	});
 if (env.NODE_ENV !== "production") {
 	globalForPostgres.postgresClient = queryClient;

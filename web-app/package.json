@@ -19,6 +19,7 @@
 		"dev": "vite dev",
 		"start": "node --env-file-if-exists=.env .output/server/index.mjs",
 		"test": "vitest run",
+		"test:integration": "vitest run --config vitest.integration.config.ts",
 		"test:watch": "vitest",
 		"typecheck": "tsc",
 		"check": "biome check --write .",
