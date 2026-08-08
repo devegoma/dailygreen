@@ -289,6 +289,67 @@ describe("habit mutations", () => {
 		await waitFor(() => expect(result.current.error).toBeNull());
 	});
 
+	it("新しいcomplete開始後は先行するstale同期の完了を引き継がない", async () => {
+		const queryClient = createQueryClient();
+		let completeRequestCount = 0;
+		let homeRequestCount = 0;
+		let resolveFirstSynchronization: ((response: Response) => void) | undefined;
+		let resolveSecondComplete: ((response: Response) => void) | undefined;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					if (homeRequestCount === 1) {
+						return Promise.resolve(jsonResponse(homeData));
+					}
+					return new Promise<Response>((resolve) => {
+						resolveFirstSynchronization ??= resolve;
+					});
+				}
+				completeRequestCount += 1;
+				if (completeRequestCount === 1) {
+					return Promise.resolve(
+						jsonResponse(
+							{
+								code: "HABIT_ALREADY_COMPLETED_TODAY",
+								message: "達成済みです。",
+							},
+							409,
+						),
+					);
+				}
+				return new Promise<Response>((resolve) => {
+					resolveSecondComplete = resolve;
+				});
+			}),
+		);
+		renderHook(() => useHomeQuery({ enabled: true, userId: "user-a" }), {
+			wrapper: wrapper(queryClient),
+		});
+		const { result } = renderHook(() => useCompleteHabitMutation("habit-1"), {
+			wrapper: wrapper(queryClient),
+		});
+		await waitFor(() => expect(homeRequestCount).toBe(1));
+
+		await expect(result.current.mutateAsync()).rejects.toMatchObject({
+			code: "HABIT_ALREADY_COMPLETED_TODAY",
+		});
+		await waitFor(() =>
+			expect(resolveFirstSynchronization).toBeTypeOf("function"),
+		);
+		act(() => {
+			result.current.mutate();
+		});
+		await waitFor(() => expect(resolveSecondComplete).toBeTypeOf("function"));
+		resolveFirstSynchronization?.(jsonResponse(homeData));
+
+		await waitFor(() => expect(result.current.isPending).toBe(true));
+		expect(result.current.isStaleStateSynchronized).toBe(false);
+		resolveSecondComplete?.(jsonResponse(completeResponse));
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+	});
+
 	it("stale-state error後のGET失敗時はerrorをreset可能にしない", async () => {
 		const queryClient = createQueryClient();
 		let homeRequestCount = 0;
