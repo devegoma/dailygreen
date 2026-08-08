@@ -1,8 +1,8 @@
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "~/db/index.server";
-import { habit, user as userTable } from "~/db/schema";
+import { dailyRecord, habit, user as userTable } from "~/db/schema";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
-import { toJstDateTimeString } from "~/lib/api/date";
+import { getJstDateContext, toJstDateTimeString } from "~/lib/api/date";
 import { ApiError, notImplementedApiError } from "~/lib/api/errors";
 import { parseCreateHabitRequest } from "./habits.contract";
 
@@ -32,6 +32,27 @@ export type HabitMutationInput = {
 };
 
 type HabitRow = typeof habit.$inferSelect;
+type HabitTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+type HabitSummary = Pick<
+	HabitRow,
+	"id" | "name" | "emoji" | "currentStreak" | "maxStreak"
+> & {
+	isCompletedToday: boolean;
+};
+
+export type CompleteHabitResponse = {
+	dailyRecord: {
+		id: string;
+		habitId: string;
+		date: string;
+		completedAt: string;
+	};
+	habit: HabitSummary;
+};
+
+const uuidPattern =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function toHabitResponse(row: HabitRow): HabitResponse {
 	return {
@@ -43,6 +64,55 @@ function toHabitResponse(row: HabitRow): HabitResponse {
 		createdAt: toJstDateTimeString(row.createdAt),
 		archivedAt: row.archivedAt ? toJstDateTimeString(row.archivedAt) : null,
 	};
+}
+
+function toHabitSummary(row: HabitRow): HabitSummary {
+	return {
+		id: row.id,
+		name: row.name,
+		emoji: row.emoji,
+		currentStreak: row.currentStreak,
+		maxStreak: row.maxStreak,
+		isCompletedToday: true,
+	};
+}
+
+async function lockHabit(
+	tx: HabitTransaction,
+	userId: string,
+	habitId: string,
+): Promise<HabitRow> {
+	if (!uuidPattern.test(habitId)) {
+		throw new ApiError("HABIT_NOT_FOUND");
+	}
+
+	const [lockedHabit] = await tx
+		.select()
+		.from(habit)
+		.where(and(eq(habit.id, habitId), eq(habit.userId, userId)))
+		.for("update");
+
+	if (!lockedHabit) {
+		throw new ApiError("HABIT_NOT_FOUND");
+	}
+
+	return lockedHabit;
+}
+
+function isDailyRecordUniqueViolation(error: unknown): boolean {
+	if (typeof error !== "object" || error === null) {
+		return false;
+	}
+
+	const databaseError = error as {
+		code?: unknown;
+		constraint_name?: unknown;
+	};
+	return (
+		databaseError.code === "23505" &&
+		(databaseError.constraint_name === undefined ||
+			databaseError.constraint_name === "habit_date_unique")
+	);
 }
 
 export async function createHabit(
@@ -100,7 +170,77 @@ export async function archiveHabit(_input: HabitMutationInput): Promise<never> {
 }
 
 export async function completeHabit(
-	_input: HabitMutationInput,
-): Promise<never> {
-	throw notImplementedApiError("POST /api/habits/:id/complete");
+	input: HabitMutationInput,
+): Promise<CompleteHabitResponse> {
+	const now = input.now ?? new Date();
+	const { today, yesterday } = getJstDateContext(now);
+
+	try {
+		return await db.transaction(async (tx) => {
+			// update / archive と同じ habit 行ロックを使い、操作の成立順を直列化する。
+			const lockedHabit = await lockHabit(tx, input.user.id, input.habitId);
+			if (lockedHabit.archivedAt !== null) {
+				throw new ApiError("HABIT_ARCHIVED");
+			}
+
+			const [latestRecord] = await tx
+				.select({ date: dailyRecord.date })
+				.from(dailyRecord)
+				.where(eq(dailyRecord.habitId, lockedHabit.id))
+				.orderBy(desc(dailyRecord.date))
+				.limit(1);
+
+			if (latestRecord?.date === today) {
+				throw new ApiError("HABIT_ALREADY_COMPLETED_TODAY");
+			}
+
+			const currentStreak =
+				latestRecord?.date === yesterday ? lockedHabit.currentStreak + 1 : 1;
+			const maxStreak = Math.max(lockedHabit.maxStreak, currentStreak);
+
+			const [createdRecord] = await tx
+				.insert(dailyRecord)
+				.values({
+					habitId: lockedHabit.id,
+					date: today,
+					completedAt: now,
+				})
+				.returning();
+
+			if (!createdRecord) {
+				throw new Error("達成記録の作成結果を取得できませんでした。");
+			}
+
+			const [updatedHabit] = await tx
+				.update(habit)
+				.set({
+					currentStreak,
+					maxStreak,
+					updatedAt: now,
+				})
+				.where(eq(habit.id, lockedHabit.id))
+				.returning();
+
+			if (!updatedHabit) {
+				throw new Error("習慣の更新結果を取得できませんでした。");
+			}
+
+			return {
+				dailyRecord: {
+					id: createdRecord.id,
+					habitId: createdRecord.habitId,
+					date: createdRecord.date,
+					completedAt: toJstDateTimeString(createdRecord.completedAt),
+				},
+				habit: toHabitSummary(updatedHabit),
+			};
+		});
+	} catch (error) {
+		if (isDailyRecordUniqueViolation(error)) {
+			throw new ApiError("HABIT_ALREADY_COMPLETED_TODAY", undefined, {
+				cause: error,
+			});
+		}
+		throw error;
+	}
 }
