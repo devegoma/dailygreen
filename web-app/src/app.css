@@ -8,9 +8,30 @@
 
 html,
 body {
-	@apply bg-white dark:bg-gray-950;
+	@apply bg-white;
+	color-scheme: light;
+}
 
-	@media (prefers-color-scheme: dark) {
-		color-scheme: dark;
-	}
+[data-activity-level="null"] {
+	background-color: #e7e5e4;
+}
+
+[data-activity-level="zero"] {
+	background-color: #cbd5d1;
+}
+
+[data-activity-level="level-1"] {
+	background-color: #bbf7d0;
+}
+
+[data-activity-level="level-2"] {
+	background-color: #86efac;
+}
+
+[data-activity-level="level-3"] {
+	background-color: #22c55e;
+}
+
+[data-activity-level="level-4"] {
+	background-color: #15803d;
 }
