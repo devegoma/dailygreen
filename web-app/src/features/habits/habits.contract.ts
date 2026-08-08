@@ -3,8 +3,8 @@ import { ApiError } from "~/lib/api/errors";
 const graphemeSegmenter = new Intl.Segmenter("ja", {
 	granularity: "grapheme",
 });
-const emojiPattern =
-	/\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F|[#*0-9]\uFE0F?\u20E3/u;
+// biome-ignore lint/complexity/useRegexLiterals: ES2022 targetでvフラグを使用するためコンストラクタ形式にする。
+const emojiPattern = new RegExp("^\\p{RGI_Emoji}$", "v");
 const createHabitFields = new Set(["name", "emoji"]);
 
 export type CreateHabitRequest = {
@@ -25,7 +25,7 @@ function countGraphemes(value: string): number {
 }
 
 function isSingleEmojiGrapheme(value: string): boolean {
-	return countGraphemes(value) === 1 && emojiPattern.test(value);
+	return emojiPattern.test(value);
 }
 
 export function parseCreateHabitRequest(body: unknown): CreateHabitRequest {

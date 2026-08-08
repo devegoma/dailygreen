@@ -39,19 +39,24 @@ describe("parseCreateHabitRequest", () => {
 		}
 	});
 
-	it.each([null, "emoji", "📚📖", " ", "❤", "\u20E3", 1])(
-		"不正なemoji %j を拒否する",
-		(emoji) => {
-			expect(() =>
-				parseCreateHabitRequest({ name: "習慣", emoji }),
-			).toThrowError(
-				expect.objectContaining({
-					code: "INVALID_REQUEST",
-					status: 400,
-				}),
-			);
-		},
-	);
+	it.each([
+		null,
+		"emoji",
+		"📚📖",
+		" ",
+		"❤",
+		"\u20E3",
+		"📚\uFE0E",
+		"📚\u200D",
+		1,
+	])("不正なemoji %j を拒否する", (emoji) => {
+		expect(() => parseCreateHabitRequest({ name: "習慣", emoji })).toThrowError(
+			expect.objectContaining({
+				code: "INVALID_REQUEST",
+				status: 400,
+			}),
+		);
+	});
 
 	it("50グラフェムの習慣名を受け付ける", () => {
 		const name = "🌱".repeat(50);
