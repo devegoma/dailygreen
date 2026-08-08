@@ -65,6 +65,14 @@ describe("parseCreateHabitRequest", () => {
 		const name = "🌱".repeat(50);
 		expect(parseCreateHabitRequest({ name })).toEqual({ name, emoji: "" });
 	});
+
+	it("51グラフェムの習慣名を拒否する", () => {
+		expect(() =>
+			parseCreateHabitRequest({ name: "🌱".repeat(51) }),
+		).toThrowError(
+			expect.objectContaining({ code: "INVALID_REQUEST", status: 400 }),
+		);
+	});
 });
 
 describe("parseUpdateHabitRequest", () => {
@@ -133,5 +141,13 @@ describe("parseUpdateHabitRequest", () => {
 	it("50グラフェムの習慣名を受け付ける", () => {
 		const name = "🌱".repeat(50);
 		expect(parseUpdateHabitRequest({ name })).toEqual({ name });
+	});
+
+	it("51グラフェムの習慣名を拒否する", () => {
+		expect(() =>
+			parseUpdateHabitRequest({ name: "🌱".repeat(51) }),
+		).toThrowError(
+			expect.objectContaining({ code: "INVALID_REQUEST", status: 400 }),
+		);
 	});
 });
