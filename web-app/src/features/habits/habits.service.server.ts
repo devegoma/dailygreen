@@ -100,19 +100,30 @@ async function lockHabit(
 }
 
 function isDailyRecordUniqueViolation(error: unknown): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
+	const visited = new Set<object>();
+	let current: unknown = error;
+
+	while (typeof current === "object" && current !== null) {
+		if (visited.has(current)) {
+			return false;
+		}
+		visited.add(current);
+
+		const databaseError = current as {
+			code?: unknown;
+			constraint_name?: unknown;
+			cause?: unknown;
+		};
+		if (
+			databaseError.code === "23505" &&
+			databaseError.constraint_name === "habit_date_unique"
+		) {
+			return true;
+		}
+		current = databaseError.cause;
 	}
 
-	const databaseError = error as {
-		code?: unknown;
-		constraint_name?: unknown;
-	};
-	return (
-		databaseError.code === "23505" &&
-		(databaseError.constraint_name === undefined ||
-			databaseError.constraint_name === "habit_date_unique")
-	);
+	return false;
 }
 
 export async function createHabit(
