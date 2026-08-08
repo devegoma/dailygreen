@@ -71,8 +71,11 @@ describe("TodaySummary と HabitList", () => {
 			"border-emerald-200",
 		);
 		expect(
-			screen.queryByRole("button", { name: /操作メニュー/ }),
-		).not.toBeInTheDocument();
+			screen.getByRole("button", { name: "後の習慣 の操作メニュー" }),
+		).toBeEnabled();
+		expect(
+			screen.getByRole("button", { name: "先の習慣 の操作メニュー" }),
+		).toBeEnabled();
 	});
 
 	it("対象習慣がない場合は空状態だけを表示し、0 / 0 完了を表示しない", () => {

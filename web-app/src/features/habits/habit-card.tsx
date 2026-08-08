@@ -1,5 +1,6 @@
 import type { HomeHabit } from "~/features/home/home.contract";
 import { CompleteButton } from "./complete-button";
+import { HabitActionMenu } from "./habit-action-menu";
 
 type HabitCardProps = {
 	habit: HomeHabit;
@@ -28,7 +29,10 @@ export function HabitCard({ habit, onUnauthorized }: HabitCardProps) {
 						現在 {habit.currentStreak}日 ・ 最長 {habit.maxStreak}日
 					</p>
 				</div>
-				<CompleteButton habit={habit} onUnauthorized={onUnauthorized} />
+				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start">
+					<CompleteButton habit={habit} onUnauthorized={onUnauthorized} />
+					<HabitActionMenu habit={habit} onUnauthorized={onUnauthorized} />
+				</div>
 			</div>
 		</article>
 	);
