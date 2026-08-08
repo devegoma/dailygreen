@@ -1,0 +1,1 @@
+CREATE INDEX "habit_user_id_archived_at_id_idx" ON "habit" USING btree ("userId","archivedAt","id");
