@@ -284,11 +284,45 @@ describe("HabitActionMenu", () => {
 		).toBeEnabled();
 		await user.keyboard("{Escape}");
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
-		expect(
-			fetchMock.mock.calls.filter(
-				([path]) => path === "/api/habits/reading/archive",
-			),
-		).toHaveLength(1);
+		await vi.waitFor(() =>
+			expect(
+				fetchMock.mock.calls.filter(
+					([path]) => path === "/api/habits/reading/archive",
+				),
+			).toHaveLength(1),
+		);
+		await act(async () => archive.resolve(jsonResponse(habitResponse())));
+	});
+
+	it("アーカイブ送信と同一turnの二重click・Escapeでも1回だけ送信しDialogを閉じない", async () => {
+		const user = userEvent.setup();
+		const archive = deferred<Response>();
+		vi.stubGlobal("fetch", fetchMock.mockReturnValue(archive.promise));
+		renderWithClient(<HabitActionMenu habit={makeHabit()} />);
+		await openMenuItem(user, "アーカイブ");
+		const submit = screen.getByRole("button", { name: "アーカイブする" });
+
+		act(() => {
+			submit.click();
+			submit.click();
+			document.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+			);
+		});
+
+		await vi.waitFor(() =>
+			expect(
+				fetchMock.mock.calls.filter(
+					([path]) => path === "/api/habits/reading/archive",
+				),
+			).toHaveLength(1),
+		);
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		await vi.waitFor(() =>
+			expect(
+				screen.getByRole("button", { name: "アーカイブしています…" }),
+			).toBeDisabled(),
+		);
 		await act(async () => archive.resolve(jsonResponse(habitResponse())));
 	});
 

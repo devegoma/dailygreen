@@ -31,8 +31,9 @@ export function ArchiveConfirmDialog({
 	const isAnyHabitMutationPending = useIsHabitMutationPending(habit.id);
 	const isHabitSynchronizing = useIsHabitMutationSynchronizing(habit.id);
 	const isPending = mutation.isPending || isAnyHabitMutationPending;
-	const blocksClose =
+	const shouldBlockInteraction = () =>
 		isPending || isHabitSynchronizing || submitInFlight.current;
+	const blocksClose = shouldBlockInteraction();
 
 	useEffect(() => {
 		mountedRef.current = true;
@@ -55,13 +56,13 @@ export function ArchiveConfirmDialog({
 	}, [mutation.isStaleStateSynchronized, mutation.resetStaleStateError]);
 
 	const requestClose = () => {
-		if (blocksClose) return;
+		if (shouldBlockInteraction()) return;
 		onOpenChange(false);
 		setSubmitError(null);
 		mutation.reset();
 	};
 	const archive = async () => {
-		if (blocksClose) return;
+		if (shouldBlockInteraction()) return;
 		setSubmitError(null);
 		submitInFlight.current = true;
 		try {
@@ -96,10 +97,10 @@ export function ArchiveConfirmDialog({
 						triggerRef.current?.focus();
 					}}
 					onEscapeKeyDown={(event) => {
-						if (blocksClose) event.preventDefault();
+						if (shouldBlockInteraction()) event.preventDefault();
 					}}
 					onInteractOutside={(event) => {
-						if (blocksClose) event.preventDefault();
+						if (shouldBlockInteraction()) event.preventDefault();
 					}}
 				>
 					<Dialog.Title className="text-lg font-semibold text-stone-950">
