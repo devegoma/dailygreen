@@ -102,8 +102,17 @@ export function ArchiveConfirmDialog({
 						if (refetchHomeAfterClose.current) {
 							refetchHomeAfterClose.current = false;
 							void mutation.refetchHome().then(() => {
-								// refetchで対象cardが消えてもfocusをbodyへ落とさない。
-								fallbackFocusRef?.current?.focus();
+								// Query observerの描画反映後、対象cardの消滅でfocusが失われた
+								// 場合だけfallbackする。refetch中に移動したfocusは奪わない。
+								setTimeout(() => {
+									const activeElement = document.activeElement;
+									const focusWasLost =
+										activeElement === document.body ||
+										!activeElement?.isConnected;
+									if (!triggerRef.current?.isConnected && focusWasLost) {
+										fallbackFocusRef?.current?.focus();
+									}
+								}, 0);
 							});
 						}
 					}}

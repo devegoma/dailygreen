@@ -181,6 +181,43 @@ describe("HabitActionMenu", () => {
 		);
 	});
 
+	it("アーカイブ後のrefetch中に別controlへ移したfocusを完了時に奪わない", async () => {
+		const user = userEvent.setup();
+		const refetch = deferred<Response>();
+		const walk = makeHabit({ id: "walk", name: "散歩", emoji: "🚶" });
+		let homeCalls = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					homeCalls += 1;
+					return homeCalls === 1
+						? Promise.resolve(jsonResponse(homeData([makeHabit(), walk])))
+						: refetch.promise;
+				}
+				return Promise.resolve(jsonResponse(habitResponse()));
+			}),
+		);
+		const client = createQueryClient();
+		render(<ActiveHomeHabitList />, { wrapper: wrapper(client) });
+		await screen.findByRole("button", { name: "読書 の操作メニュー" });
+		await openMenuItem(user, "アーカイブ");
+		await user.click(screen.getByRole("button", { name: "アーカイブする" }));
+		await vi.waitFor(() => expect(homeCalls).toBe(2));
+		const nextControl = screen.getByRole("button", { name: "散歩を達成する" });
+		nextControl.focus();
+		expect(nextControl).toHaveFocus();
+
+		refetch.resolve(jsonResponse(homeData([walk])));
+		await vi.waitFor(() =>
+			expect(
+				screen.queryByRole("button", { name: "読書を達成する" }),
+			).not.toBeInTheDocument(),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(nextControl).toHaveFocus();
+	});
+
 	it.each([
 		["編集", "HABIT_ARCHIVED", 409, "この習慣はすでにアーカイブされています"],
 		["編集", "HABIT_NOT_FOUND", 404, "習慣が見つかりません"],

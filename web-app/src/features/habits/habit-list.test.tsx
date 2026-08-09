@@ -66,6 +66,19 @@ describe("TodaySummary と HabitList", () => {
 		expect(
 			screen.getByRole("button", { name: "後の習慣を達成する" }),
 		).toHaveClass("w-full", "sm:w-auto");
+		expect(
+			screen.getByRole("button", { name: "後の習慣を達成する" }).parentElement
+				?.parentElement,
+		).toHaveClass(
+			"col-span-2",
+			"row-start-2",
+			"sm:col-start-2",
+			"sm:row-start-1",
+		);
+		expect(
+			screen.getByRole("button", { name: "後の習慣 の操作メニュー" })
+				.parentElement?.parentElement,
+		).toHaveClass("col-start-2", "row-start-1", "sm:col-start-3");
 		expect(document.querySelector('[data-completed="true"]')).toHaveClass(
 			"bg-emerald-50",
 			"border-emerald-200",
