@@ -124,7 +124,7 @@ describe("AddHabitDialog", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it("trim済みpayloadをPOSTし、成功後にhomeを再取得してから閉じる", async () => {
+	it("trim済みpayloadをPOSTし、Dialog closeとfocus復帰後にhomeを再取得する", async () => {
 		const user = userEvent.setup();
 		let homeRequestCount = 0;
 		let resolveHomeRefetch: ((response: Response) => void) | undefined;
@@ -146,19 +146,20 @@ describe("AddHabitDialog", () => {
 		renderWithClient(<AddHabitDialogWithActiveHome />);
 		await vi.waitFor(() => expect(homeRequestCount).toBe(1));
 		await openDialog(user);
+		const trigger = screen.getByRole("button", {
+			name: "+ タスク追加",
+			hidden: true,
+		});
 		await user.type(screen.getByLabelText("習慣名"), "  読書  ");
 		await user.type(screen.getByLabelText("絵文字（任意）"), "📚");
 		await user.click(screen.getByRole("button", { name: "追加" }));
 
-		await vi.waitFor(() => expect(homeRequestCount).toBe(2));
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "追加しています…" }),
-		).toBeDisabled();
-		resolveHomeRefetch?.(jsonResponse(homeData));
 		await vi.waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 		);
+		expect(trigger).toHaveFocus();
+		await vi.waitFor(() => expect(homeRequestCount).toBe(2));
+		resolveHomeRefetch?.(jsonResponse(homeData));
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/habits",
 			expect.objectContaining({

@@ -1,5 +1,4 @@
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ErrorComponentProps } from "@tanstack/react-router";
 import {
 	createRootRouteWithContext,
 	HeadContent,
@@ -48,24 +47,24 @@ function RootComponent() {
 	);
 }
 
-function RootErrorComponent({ error }: ErrorComponentProps) {
-	const details =
-		import.meta.env.DEV && error instanceof Error
-			? error.message
-			: "An unexpected error occurred.";
-	const stack =
-		import.meta.env.DEV && error instanceof Error ? error.stack : null;
-
+function RootErrorComponent() {
 	return (
 		<RootDocument>
-			<main className="container mx-auto p-4 pt-16">
-				<h1>Error</h1>
-				<p>{details}</p>
-				{stack ? (
-					<pre className="w-full overflow-x-auto p-4">
-						<code>{stack}</code>
-					</pre>
-				) : null}
+			<main className="mx-auto flex min-h-dvh w-full max-w-xl items-center px-4 py-12 sm:px-6">
+				<section className="w-full rounded-xl border border-stone-200 bg-white p-6 text-center shadow-sm">
+					<h1 className="text-lg font-semibold text-stone-950">
+						ページを表示できませんでした
+					</h1>
+					<p className="mt-2 text-sm text-stone-600">
+						時間をおいて、もう一度お試しください。
+					</p>
+					<a
+						className="mt-5 inline-flex rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+						href="/"
+					>
+						ホームへ戻る
+					</a>
+				</section>
 			</main>
 		</RootDocument>
 	);
@@ -74,9 +73,21 @@ function RootErrorComponent({ error }: ErrorComponentProps) {
 function NotFoundComponent() {
 	return (
 		<RootDocument>
-			<main className="container mx-auto p-4 pt-16">
-				<h1>404</h1>
-				<p>The requested page could not be found.</p>
+			<main className="mx-auto flex min-h-dvh w-full max-w-xl items-center px-4 py-12 sm:px-6">
+				<section className="w-full rounded-xl border border-stone-200 bg-white p-6 text-center shadow-sm">
+					<h1 className="text-lg font-semibold text-stone-950">
+						ページが見つかりません
+					</h1>
+					<p className="mt-2 text-sm text-stone-600">
+						URLをご確認のうえ、もう一度お試しください。
+					</p>
+					<a
+						className="mt-5 inline-flex rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+						href="/"
+					>
+						ホームへ戻る
+					</a>
+				</section>
 			</main>
 		</RootDocument>
 	);

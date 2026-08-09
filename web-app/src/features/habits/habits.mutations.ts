@@ -262,14 +262,18 @@ export function useCreateHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
-	return useMutation({
+	const refetchHome = useCallback(
+		() => invalidateAndRefetchHome(queryClient),
+		[queryClient],
+	);
+	const mutation = useMutation({
 		mutationKey: ["habit", "create"],
 		mutationFn: (request: CreateHabitRequest) => createHabitRequest(request),
-		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
 			void synchronizeMutationError(queryClient, error, options.onUnauthorized);
 		},
 	});
+	return { ...mutation, refetchHome };
 }
 
 export function useUpdateHabitMutation(
