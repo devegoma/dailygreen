@@ -123,12 +123,12 @@ function useStaleStateSynchronization(
 	const sequenceRef = useRef(0);
 	const mountedRef = useRef(true);
 
-	useEffect(
-		() => () => {
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
 			mountedRef.current = false;
-		},
-		[],
-	);
+		};
+	}, []);
 
 	const setSynchronizing = useCallback(
 		(value: boolean) => {

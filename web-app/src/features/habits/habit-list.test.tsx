@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { PropsWithChildren } from "react";
+import { type PropsWithChildren, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
 	HomeDataResponse,
@@ -305,6 +305,58 @@ describe("TodaySummary と HabitList", () => {
 		).toBeDisabled();
 	});
 
+	it("StrictModeのeffect再setup後も成功したstale-state再同期でerrorを消去する", async () => {
+		const user = userEvent.setup();
+		const initialHome = makeHomeData();
+		const synchronization = deferred<Response>();
+		let homeRequestCount = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					homeRequestCount += 1;
+					return homeRequestCount === 1
+						? Promise.resolve(jsonResponse(initialHome))
+						: synchronization.promise;
+				}
+				return Promise.resolve(
+					jsonResponse(
+						{
+							code: "HABIT_ALREADY_COMPLETED_TODAY",
+							message: "達成済みです。",
+						},
+						409,
+					),
+				);
+			}),
+		);
+		const queryClient = createQueryClient();
+		render(<HomeHabitList />, { wrapper: strictWrapper(queryClient) });
+		await screen.findByText("1 / 3 完了");
+
+		await user.click(screen.getByRole("button", { name: "読書を達成する" }));
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			"この習慣は本日すでに達成済みです",
+		);
+		await vi.waitFor(() => expect(homeRequestCount).toBe(2));
+		synchronization.resolve(
+			jsonResponse({
+				...initialHome,
+				habits: [
+					{ ...initialHome.habits[0], isCompletedToday: true },
+					...initialHome.habits.slice(1),
+				],
+			}),
+		);
+
+		await vi.waitFor(() =>
+			expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+		);
+		expect(
+			screen.getByRole("button", { name: "読書を達成済み" }),
+		).toBeDisabled();
+	});
+
 	it("stale-state 再同期GETが失敗するとalertを維持し、再試行を許可する", async () => {
 		const user = userEvent.setup();
 		const initialHome = makeHomeData();
@@ -390,6 +442,18 @@ function wrapper(queryClient: QueryClient) {
 	return function QueryWrapper({ children }: PropsWithChildren) {
 		return (
 			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+		);
+	};
+}
+
+function strictWrapper(queryClient: QueryClient) {
+	return function StrictQueryWrapper({ children }: PropsWithChildren) {
+		return (
+			<StrictMode>
+				<QueryClientProvider client={queryClient}>
+					{children}
+				</QueryClientProvider>
+			</StrictMode>
 		);
 	};
 }
