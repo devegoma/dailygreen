@@ -1,10 +1,18 @@
 import {
 	type QueryClient,
+	queryOptions,
 	useIsMutating,
 	useMutation,
+	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { type RefObject, useCallback, useRef, useState } from "react";
+import {
+	type RefObject,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import type { HomeDataResponse } from "~/features/home/home.contract";
 import {
 	clearHomeCache,
@@ -34,6 +42,10 @@ export function habitMutationPrefix(habitId: string) {
 	return ["habit", habitId] as const;
 }
 
+function habitStaleSynchronizationKey(habitId: string) {
+	return ["habit", habitId, "stale-synchronization"] as const;
+}
+
 export function isHabitMutationPending(
 	queryClient: QueryClient,
 	habitId: string,
@@ -45,6 +57,26 @@ export function isHabitMutationPending(
 
 export function useIsHabitMutationPending(habitId: string): boolean {
 	return useIsMutating({ mutationKey: habitMutationPrefix(habitId) }) > 0;
+}
+
+/** 同一 habit の stale-state 再同期中は、新しい操作を開始させない。 */
+export function useIsHabitMutationSynchronizing(habitId: string): boolean {
+	const queryClient = useQueryClient();
+	const query = useQuery(
+		queryOptions({
+			queryKey: habitStaleSynchronizationKey(habitId),
+			queryFn: () => false,
+			initialData: false,
+			staleTime: Number.POSITIVE_INFINITY,
+			enabled: false,
+		}),
+	);
+	// QueryClientProvider の切替直後にも、対象 client の cache を正として読む。
+	return (
+		query.data ??
+		queryClient.getQueryData<boolean>(habitStaleSynchronizationKey(habitId)) ??
+		false
+	);
 }
 
 function isStaleStateError(error: unknown): boolean {
@@ -81,34 +113,60 @@ function useStaleStateErrorReset(
  * 完了後に HabitCard が再描画されず、表示済みのエラーを消去できないため state も
  * 併用する。直近の mutation error だけが状態を更新する。
  */
-function useStaleStateSynchronization() {
+function useStaleStateSynchronization(
+	queryClient: QueryClient,
+	habitId: string,
+) {
 	const [isSynchronized, setIsSynchronized] = useState(false);
 	const [isSynchronizing, setIsSynchronizing] = useState(false);
 	const synchronizedRef = useRef(false);
 	const sequenceRef = useRef(0);
+	const mountedRef = useRef(true);
+
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+		};
+	}, []);
+
+	const setSynchronizing = useCallback(
+		(value: boolean) => {
+			queryClient.setQueryData(habitStaleSynchronizationKey(habitId), value);
+			if (mountedRef.current) {
+				setIsSynchronizing(value);
+			}
+		},
+		[habitId, queryClient],
+	);
+	const setSynchronized = useCallback((value: boolean) => {
+		if (mountedRef.current) {
+			setIsSynchronized(value);
+		}
+	}, []);
 	const beginSynchronization = useCallback(() => {
 		sequenceRef.current += 1;
 		synchronizedRef.current = false;
-		setIsSynchronized(false);
-		setIsSynchronizing(true);
+		setSynchronized(false);
+		setSynchronizing(true);
 		return sequenceRef.current;
-	}, []);
+	}, [setSynchronizing, setSynchronized]);
 	const completeSynchronization = useCallback(
 		(sequence: number, synchronized: boolean) => {
 			if (sequence === sequenceRef.current) {
 				synchronizedRef.current = synchronized;
-				setIsSynchronized(synchronized);
-				setIsSynchronizing(false);
+				setSynchronized(synchronized);
+				setSynchronizing(false);
 			}
 		},
-		[],
+		[setSynchronizing, setSynchronized],
 	);
 	const clearSynchronization = useCallback(() => {
 		sequenceRef.current += 1;
 		synchronizedRef.current = false;
-		setIsSynchronized(false);
-		setIsSynchronizing(false);
-	}, []);
+		setSynchronized(false);
+		setSynchronizing(false);
+	}, [setSynchronizing, setSynchronized]);
 
 	return {
 		isSynchronized,
@@ -219,7 +277,14 @@ export function useUpdateHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
-	const staleStateSynchronization = useStaleStateSynchronization();
+	const refetchHome = useCallback(
+		() => invalidateAndRefetchHome(queryClient),
+		[queryClient],
+	);
+	const staleStateSynchronization = useStaleStateSynchronization(
+		queryClient,
+		habitId,
+	);
 	const mutation = useMutation({
 		mutationKey: habitMutationKey(habitId, "update"),
 		mutationFn: (request: UpdateHabitRequest) =>
@@ -227,7 +292,6 @@ export function useUpdateHabitMutation(
 		onMutate: () => {
 			staleStateSynchronization.clearSynchronization();
 		},
-		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
 			synchronizeStaleStateError(
 				queryClient,
@@ -245,6 +309,7 @@ export function useUpdateHabitMutation(
 	);
 	return {
 		...mutation,
+		refetchHome,
 		resetStaleStateError,
 		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
 		isStaleStateSynchronizing: staleStateSynchronization.isSynchronizing,
@@ -256,14 +321,20 @@ export function useArchiveHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
-	const staleStateSynchronization = useStaleStateSynchronization();
+	const refetchHome = useCallback(
+		() => invalidateAndRefetchHome(queryClient),
+		[queryClient],
+	);
+	const staleStateSynchronization = useStaleStateSynchronization(
+		queryClient,
+		habitId,
+	);
 	const mutation = useMutation({
 		mutationKey: habitMutationKey(habitId, "archive"),
 		mutationFn: () => archiveHabitRequest(habitId),
 		onMutate: () => {
 			staleStateSynchronization.clearSynchronization();
 		},
-		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
 			synchronizeStaleStateError(
 				queryClient,
@@ -281,6 +352,7 @@ export function useArchiveHabitMutation(
 	);
 	return {
 		...mutation,
+		refetchHome,
 		resetStaleStateError,
 		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
 		isStaleStateSynchronizing: staleStateSynchronization.isSynchronizing,
@@ -292,7 +364,10 @@ export function useCompleteHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
-	const staleStateSynchronization = useStaleStateSynchronization();
+	const staleStateSynchronization = useStaleStateSynchronization(
+		queryClient,
+		habitId,
+	);
 	const mutation = useMutation({
 		mutationKey: habitMutationKey(habitId, "complete"),
 		mutationFn: () => completeHabitRequest(habitId),

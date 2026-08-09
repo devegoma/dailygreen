@@ -4,6 +4,7 @@ import { ApiClientError } from "~/lib/api/client";
 import {
 	useCompleteHabitMutation,
 	useIsHabitMutationPending,
+	useIsHabitMutationSynchronizing,
 } from "./habits.mutations";
 
 type CompleteButtonProps = {
@@ -40,6 +41,7 @@ export function getCompleteHabitErrorMessage(error: unknown): string | null {
 export function CompleteButton({ habit, onUnauthorized }: CompleteButtonProps) {
 	const mutation = useCompleteHabitMutation(habit.id, { onUnauthorized });
 	const isHabitMutationPending = useIsHabitMutationPending(habit.id);
+	const isSharedHabitSynchronizing = useIsHabitMutationSynchronizing(habit.id);
 	const submitInFlight = useRef(false);
 	const errorMessage = getCompleteHabitErrorMessage(mutation.error);
 	const {
@@ -47,6 +49,8 @@ export function CompleteButton({ habit, onUnauthorized }: CompleteButtonProps) {
 		isStaleStateSynchronizing,
 		resetStaleStateError,
 	} = mutation;
+	const isHabitSynchronizing =
+		isStaleStateSynchronizing || isSharedHabitSynchronizing;
 
 	useEffect(() => {
 		if (isStaleStateSynchronized) {
@@ -58,7 +62,7 @@ export function CompleteButton({ habit, onUnauthorized }: CompleteButtonProps) {
 		if (
 			habit.isCompletedToday ||
 			isHabitMutationPending ||
-			isStaleStateSynchronizing ||
+			isHabitSynchronizing ||
 			submitInFlight.current
 		) {
 			return;
@@ -74,25 +78,23 @@ export function CompleteButton({ habit, onUnauthorized }: CompleteButtonProps) {
 
 	const isCompleting = mutation.isPending;
 	const isDisabled =
-		habit.isCompletedToday ||
-		isHabitMutationPending ||
-		isStaleStateSynchronizing;
+		habit.isCompletedToday || isHabitMutationPending || isHabitSynchronizing;
 	const label = habit.isCompletedToday
 		? "✓ 達成済み"
 		: isCompleting
 			? "達成しています…"
-			: isStaleStateSynchronizing
+			: isHabitSynchronizing
 				? "状態を確認しています…"
 				: "達成する";
 
 	return (
 		<div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
 			<button
-				aria-busy={isCompleting || isStaleStateSynchronizing || undefined}
+				aria-busy={isCompleting || isHabitSynchronizing || undefined}
 				aria-label={`${habit.name}を${
 					isCompleting
 						? "達成しています"
-						: isStaleStateSynchronizing
+						: isHabitSynchronizing
 							? "最新状態を確認しています"
 							: habit.isCompletedToday
 								? "達成済み"
