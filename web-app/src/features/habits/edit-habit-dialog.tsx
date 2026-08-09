@@ -48,6 +48,7 @@ export function EditHabitDialog({
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const wasOpenRef = useRef(false);
 	const submitInFlight = useRef(false);
+	const refetchHomeAfterClose = useRef(false);
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const mountedRef = useRef(true);
 	const mutation = useUpdateHabitMutation(habit.id, { onUnauthorized });
@@ -117,6 +118,7 @@ export function EditHabitDialog({
 				emoji: validEmoji.value,
 			});
 			if (mountedRef.current) {
+				refetchHomeAfterClose.current = true;
 				onOpenChange(false);
 				resetToLatestValues();
 			}
@@ -144,6 +146,10 @@ export function EditHabitDialog({
 					onCloseAutoFocus={(event) => {
 						event.preventDefault();
 						triggerRef.current?.focus();
+						if (refetchHomeAfterClose.current) {
+							refetchHomeAfterClose.current = false;
+							void mutation.refetchHome();
+						}
 					}}
 					onEscapeKeyDown={(event) => {
 						if (blocksClose) event.preventDefault();

@@ -75,7 +75,7 @@ describe("HabitActionMenu", () => {
 		);
 	});
 
-	it("no-op updateも成功として扱い、active home refetch完了まで編集Dialogを閉じない", async () => {
+	it("no-op updateも成功として扱い、Dialog closeとfocus復帰後にactive homeをrefetchする", async () => {
 		const user = userEvent.setup();
 		const refetch = deferred<Response>();
 		let homeCalls = 0;
@@ -95,15 +95,17 @@ describe("HabitActionMenu", () => {
 		render(<ActiveHomeMenu />, { wrapper: wrapper(client) });
 		await screen.findByRole("button", { name: "読書 の操作メニュー" });
 		await openMenuItem(user, "編集");
+		const trigger = screen.getByRole("button", {
+			name: "読書 の操作メニュー",
+			hidden: true,
+		});
 		await user.click(screen.getByRole("button", { name: "保存" }));
-		await vi.waitFor(() => expect(homeCalls).toBe(2));
-		expect(
-			screen.getByRole("button", { name: "保存しています…" }),
-		).toBeDisabled();
-		refetch.resolve(jsonResponse(homeData()));
 		await vi.waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 		);
+		expect(trigger).toHaveFocus();
+		await vi.waitFor(() => expect(homeCalls).toBe(2));
+		refetch.resolve(jsonResponse(homeData()));
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/habits/reading",
 			expect.objectContaining({
@@ -140,6 +142,42 @@ describe("HabitActionMenu", () => {
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/habits/reading/archive",
 			expect.objectContaining({ method: "PATCH" }),
+		);
+	});
+
+	it("アーカイブ成功はcloseとtrigger focus後にrefetchし、card消滅後は一覧へfocusを移す", async () => {
+		const user = userEvent.setup();
+		const refetch = deferred<Response>();
+		let homeCalls = 0;
+		vi.stubGlobal(
+			"fetch",
+			fetchMock.mockImplementation((path: string) => {
+				if (path === "/api/home") {
+					homeCalls += 1;
+					return homeCalls === 1
+						? Promise.resolve(jsonResponse(homeData()))
+						: refetch.promise;
+				}
+				return Promise.resolve(jsonResponse(habitResponse()));
+			}),
+		);
+		const client = createQueryClient();
+		render(<ActiveHomeHabitList />, { wrapper: wrapper(client) });
+		const trigger = await screen.findByRole("button", {
+			name: "読書 の操作メニュー",
+		});
+		await openMenuItem(user, "アーカイブ");
+		await user.click(screen.getByRole("button", { name: "アーカイブする" }));
+
+		await vi.waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+		expect(trigger).toHaveFocus();
+		await vi.waitFor(() => expect(homeCalls).toBe(2));
+		refetch.resolve(jsonResponse(homeData([])));
+		await screen.findByText("今日の習慣はまだありません。");
+		await vi.waitFor(() =>
+			expect(screen.getByRole("region", { name: "今日の習慣" })).toHaveFocus(),
 		);
 	});
 
@@ -448,9 +486,9 @@ function habitResponse(overrides: Record<string, unknown> = {}) {
 		...overrides,
 	};
 }
-function homeData() {
+function homeData(habits: HomeHabit[] = [makeHabit()]) {
 	return {
-		habits: [makeHabit()],
+		habits,
 		activityLog: [{ date: "2026-08-08", completionRate: null }],
 	};
 }

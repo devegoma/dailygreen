@@ -12,6 +12,7 @@ type ArchiveConfirmDialogProps = {
 	habit: HomeHabit;
 	open: boolean;
 	triggerRef: React.RefObject<HTMLButtonElement | null>;
+	fallbackFocusRef?: React.RefObject<HTMLElement | null>;
 	onOpenChange: (open: boolean) => void;
 	onUnauthorized?: () => void | Promise<void>;
 };
@@ -20,11 +21,13 @@ export function ArchiveConfirmDialog({
 	habit,
 	open,
 	triggerRef,
+	fallbackFocusRef,
 	onOpenChange,
 	onUnauthorized,
 }: ArchiveConfirmDialogProps) {
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const submitInFlight = useRef(false);
+	const refetchHomeAfterClose = useRef(false);
 	const mountedRef = useRef(true);
 	const wasOpenRef = useRef(false);
 	const mutation = useArchiveHabitMutation(habit.id, { onUnauthorized });
@@ -69,6 +72,7 @@ export function ArchiveConfirmDialog({
 			// 既アーカイブで返る冪等な 200 も通常の成功として閉じる。
 			await mutation.mutateAsync();
 			if (mountedRef.current) {
+				refetchHomeAfterClose.current = true;
 				onOpenChange(false);
 				mutation.reset();
 			}
@@ -95,6 +99,13 @@ export function ArchiveConfirmDialog({
 					onCloseAutoFocus={(event) => {
 						event.preventDefault();
 						triggerRef.current?.focus();
+						if (refetchHomeAfterClose.current) {
+							refetchHomeAfterClose.current = false;
+							void mutation.refetchHome().then(() => {
+								// refetchで対象cardが消えてもfocusをbodyへ落とさない。
+								fallbackFocusRef?.current?.focus();
+							});
+						}
 					}}
 					onEscapeKeyDown={(event) => {
 						if (shouldBlockInteraction()) event.preventDefault();

@@ -10,11 +10,13 @@ import {
 
 type HabitActionMenuProps = {
 	habit: HomeHabit;
+	archiveFallbackFocusRef?: React.RefObject<HTMLElement | null>;
 	onUnauthorized?: () => void | Promise<void>;
 };
 
 export function HabitActionMenu({
 	habit,
+	archiveFallbackFocusRef,
 	onUnauthorized,
 }: HabitActionMenuProps) {
 	const [editOpen, setEditOpen] = useState(false);
@@ -82,6 +84,7 @@ export function HabitActionMenu({
 				triggerRef={triggerRef}
 			/>
 			<ArchiveConfirmDialog
+				fallbackFocusRef={archiveFallbackFocusRef}
 				habit={habit}
 				onOpenChange={setArchiveOpen}
 				onUnauthorized={onUnauthorized}

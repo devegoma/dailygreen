@@ -277,6 +277,10 @@ export function useUpdateHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
+	const refetchHome = useCallback(
+		() => invalidateAndRefetchHome(queryClient),
+		[queryClient],
+	);
 	const staleStateSynchronization = useStaleStateSynchronization(
 		queryClient,
 		habitId,
@@ -288,7 +292,6 @@ export function useUpdateHabitMutation(
 		onMutate: () => {
 			staleStateSynchronization.clearSynchronization();
 		},
-		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
 			synchronizeStaleStateError(
 				queryClient,
@@ -306,6 +309,7 @@ export function useUpdateHabitMutation(
 	);
 	return {
 		...mutation,
+		refetchHome,
 		resetStaleStateError,
 		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
 		isStaleStateSynchronizing: staleStateSynchronization.isSynchronizing,
@@ -317,6 +321,10 @@ export function useArchiveHabitMutation(
 	options: { onUnauthorized?: () => void | Promise<void> } = {},
 ) {
 	const queryClient = useQueryClient();
+	const refetchHome = useCallback(
+		() => invalidateAndRefetchHome(queryClient),
+		[queryClient],
+	);
 	const staleStateSynchronization = useStaleStateSynchronization(
 		queryClient,
 		habitId,
@@ -327,7 +335,6 @@ export function useArchiveHabitMutation(
 		onMutate: () => {
 			staleStateSynchronization.clearSynchronization();
 		},
-		onSuccess: () => invalidateAndRefetchHome(queryClient),
 		onError: (error) => {
 			synchronizeStaleStateError(
 				queryClient,
@@ -345,6 +352,7 @@ export function useArchiveHabitMutation(
 	);
 	return {
 		...mutation,
+		refetchHome,
 		resetStaleStateError,
 		isStaleStateSynchronized: staleStateSynchronization.isSynchronized,
 		isStaleStateSynchronizing: staleStateSynchronization.isSynchronizing,

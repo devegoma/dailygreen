@@ -4,10 +4,15 @@ import { HabitActionMenu } from "./habit-action-menu";
 
 type HabitCardProps = {
 	habit: HomeHabit;
+	archiveFallbackFocusRef?: React.RefObject<HTMLElement | null>;
 	onUnauthorized?: () => void | Promise<void>;
 };
 
-export function HabitCard({ habit, onUnauthorized }: HabitCardProps) {
+export function HabitCard({
+	habit,
+	archiveFallbackFocusRef,
+	onUnauthorized,
+}: HabitCardProps) {
 	return (
 		<article
 			className={`rounded-xl border p-4 shadow-sm ${
@@ -31,7 +36,11 @@ export function HabitCard({ habit, onUnauthorized }: HabitCardProps) {
 				</div>
 				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start">
 					<CompleteButton habit={habit} onUnauthorized={onUnauthorized} />
-					<HabitActionMenu habit={habit} onUnauthorized={onUnauthorized} />
+					<HabitActionMenu
+						archiveFallbackFocusRef={archiveFallbackFocusRef}
+						habit={habit}
+						onUnauthorized={onUnauthorized}
+					/>
 				</div>
 			</div>
 		</article>
