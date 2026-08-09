@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe("habit mutations", () => {
-	it("createは成功時、update/archiveはDialog close後の明示呼び出しでhomeをrefetchする", async () => {
+	it("create/update/archiveはDialog close後の明示呼び出しでhomeをrefetchする", async () => {
 		const queryClient = createQueryClient();
 		const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
 		const refetchQueries = vi.spyOn(queryClient, "refetchQueries");
@@ -50,8 +50,9 @@ describe("habit mutations", () => {
 		await update.result.current.mutateAsync({ name: "運動" });
 		await archive.result.current.mutateAsync();
 
-		expect(invalidateQueries).toHaveBeenCalledTimes(1);
-		expect(refetchQueries).toHaveBeenCalledTimes(1);
+		expect(invalidateQueries).not.toHaveBeenCalled();
+		expect(refetchQueries).not.toHaveBeenCalled();
+		await create.result.current.refetchHome();
 		await update.result.current.refetchHome();
 		await archive.result.current.refetchHome();
 		expect(invalidateQueries).toHaveBeenCalledTimes(3);
@@ -217,10 +218,12 @@ describe("habit mutations", () => {
 			complete.result.current.mutate();
 		});
 		await waitFor(() => expect(resolveComplete).toBeTypeOf("function"));
-		const createExecution = create.result.current.mutateAsync({
-			name: "散歩",
-			emoji: "🚶",
-		});
+		const createExecution = create.result.current
+			.mutateAsync({
+				name: "散歩",
+				emoji: "🚶",
+			})
+			.then(() => create.result.current.refetchHome());
 		await waitFor(() => expect(homeRequestCount).toBe(2));
 		expect(refetchAborted).toBe(false);
 		resolveComplete?.(jsonResponse(completeResponse));

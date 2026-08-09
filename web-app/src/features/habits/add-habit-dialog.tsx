@@ -66,6 +66,7 @@ export function AddHabitDialog({ onUnauthorized }: AddHabitDialogProps) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const submitInFlight = useRef(false);
+	const refetchHomeAfterClose = useRef(false);
 	const mutation = useCreateHabitMutation({ onUnauthorized });
 	const isPending = mutation.isPending;
 
@@ -121,6 +122,7 @@ export function AddHabitDialog({ onUnauthorized }: AddHabitDialogProps) {
 				name: validatedName.value,
 				emoji: validatedEmoji.value,
 			});
+			refetchHomeAfterClose.current = true;
 			setOpen(false);
 			resetForm();
 		} catch (error) {
@@ -149,6 +151,10 @@ export function AddHabitDialog({ onUnauthorized }: AddHabitDialogProps) {
 					onCloseAutoFocus={(event) => {
 						event.preventDefault();
 						triggerRef.current?.focus();
+						if (refetchHomeAfterClose.current) {
+							refetchHomeAfterClose.current = false;
+							void mutation.refetchHome();
+						}
 					}}
 					onEscapeKeyDown={(event) => {
 						if (isPending || submitInFlight.current) {
