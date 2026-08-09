@@ -123,6 +123,20 @@ describe("HomeScreen", () => {
 		expect(
 			screen.getAllByRole("button", { name: "+ タスク追加" }),
 		).toHaveLength(1);
+		const todayHeading = screen.getByRole("heading", { name: "今日の習慣" });
+		const addHabitButton = screen.getByRole("button", { name: "+ タスク追加" });
+		const todaySectionHeader = todayHeading.parentElement?.parentElement;
+		expect(todaySectionHeader).toHaveClass(
+			"flex-col",
+			"items-start",
+			"sm:flex-row",
+			"sm:items-center",
+			"sm:justify-between",
+		);
+		expect(
+			todayHeading.compareDocumentPosition(addHabitButton) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).not.toBe(0);
 		expect(screen.queryByText("taro@example.com")).not.toBeInTheDocument();
 
 		await user.click(

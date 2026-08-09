@@ -56,7 +56,7 @@ export function HomeMainContent({
 			</section>
 
 			<section aria-labelledby="today-habits-heading" className="mt-10">
-				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+				<div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
 						<h2
 							className="text-xl font-semibold tracking-tight text-stone-950"
