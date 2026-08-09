@@ -238,9 +238,7 @@ function applyCompletedHabit(
 				habit.id === completed.habit.id
 					? {
 							...habit,
-							isCompletedToday: completed.habit.isCompletedToday,
-							currentStreak: completed.habit.currentStreak,
-							maxStreak: completed.habit.maxStreak,
+							...completed.habit,
 						}
 					: habit,
 			),

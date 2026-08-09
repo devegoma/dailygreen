@@ -104,22 +104,31 @@ describe("habit mutations", () => {
 		expect(updated?.habits).toEqual([
 			{
 				...original.habits[0],
-				isCompletedToday: true,
-				currentStreak: 2,
-				maxStreak: 4,
+				...completeResponse.habit,
 			},
 			original.habits[1],
 		]);
 		expect(updated?.activityLog).toBe(original.activityLog);
 	});
 
-	it("complete単独成功は対象3フィールドだけを更新し、追加GETを行わない", async () => {
+	it("別タブの更新が先行したcomplete成功では最新summaryを反映し、追加GETを行わない", async () => {
 		const queryClient = createQueryClient();
+		const staleHome = {
+			...homeData,
+			habits: [
+				{
+					...homeData.habits[0],
+					name: "更新前の読書",
+					emoji: "📙",
+				},
+				...homeData.habits.slice(1),
+			],
+		};
 		vi.stubGlobal(
 			"fetch",
 			fetchMock.mockImplementation((path: string) => {
 				if (path === "/api/home") {
-					return Promise.resolve(jsonResponse(homeData));
+					return Promise.resolve(jsonResponse(staleHome));
 				}
 				return Promise.resolve(jsonResponse(completeResponse));
 			}),
@@ -131,7 +140,7 @@ describe("habit mutations", () => {
 		const complete = renderHook(() => useCompleteHabitMutation("habit-1"), {
 			wrapper: wrapper(queryClient),
 		});
-		await waitFor(() => expect(home.result.current.data).toEqual(homeData));
+		await waitFor(() => expect(home.result.current.data).toEqual(staleHome));
 
 		await complete.result.current.mutateAsync();
 
@@ -140,11 +149,12 @@ describe("habit mutations", () => {
 		).toHaveLength(1);
 		await waitFor(() =>
 			expect(home.result.current.data?.habits[0]).toEqual({
-				...homeData.habits[0],
-				isCompletedToday: true,
-				currentStreak: 2,
-				maxStreak: 4,
+				...staleHome.habits[0],
+				...completeResponse.habit,
 			}),
+		);
+		expect(home.result.current.data?.activityLog).toEqual(
+			staleHome.activityLog,
 		);
 	});
 
@@ -646,8 +656,8 @@ const completeResponse = {
 	},
 	habit: {
 		id: "habit-1",
-		name: "サーバー上の名称は使わない",
-		emoji: "✅",
+		name: "更新後の読書",
+		emoji: "📖",
 		currentStreak: 2,
 		maxStreak: 4,
 		isCompletedToday: true,
