@@ -33,7 +33,7 @@ pnpm run typecheck
 pnpm run build
 ```
 
-For database schema, migration, transaction, or persistence-contract changes, also run the applicable database gates:
+For database schema, migration, transaction, or persistence-contract changes, also run the applicable database gates **only against a disposable/local test PostgreSQL database**. Confirm `DATABASE_URL` is not production before migration or integration-test commands.
 
 ```sh
 cd web-app
@@ -43,7 +43,7 @@ pnpm run db:migrate
 pnpm run test:integration
 ```
 
-After `db:generate`, verify that generated migration/schema output contains only the intended change. If a local PostgreSQL test database is unavailable, state that explicitly and treat the GitHub Actions `migration-test` job as a required completion gate rather than substituting self-review.
+Never run validation migrations or integration tests against production data. After `db:generate`, verify that generated migration/schema output contains only the intended change. If a disposable local PostgreSQL test database is unavailable, state that explicitly and treat the GitHub Actions `migration-test` job as a required completion gate rather than substituting self-review.
 
 For production-runtime or Docker changes, verify the production image in addition to the application build when practical:
 
