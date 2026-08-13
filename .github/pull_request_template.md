@@ -25,7 +25,7 @@
 - [ ] `pnpm run check:ci`
 - [ ] `pnpm run typecheck`
 - [ ] `pnpm run build`
-- [ ] DB/transaction変更では`db:check`・migration・`test:integration`を確認した、または対象外
+- [ ] DB/transaction変更ではdisposable/test DBに対して`db:check`・migration・`test:integration`を確認した、または対象外
 - [ ] production/Docker変更ではrunner imageをbuildした、または対象外
 - [ ] UI変更のスクリーンショットを添付した、またはUI変更なし
 - [ ] キーボード操作・フォーカス・aria属性を確認した、またはUI変更なし
