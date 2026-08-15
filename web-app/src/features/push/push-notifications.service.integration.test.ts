@@ -51,7 +51,9 @@ describe("Push notification PostgreSQL integration", () => {
 	});
 
 	afterEach(async () => {
-		await db.delete(pushSubscription).where(eq(pushSubscription.endpoint, endpoint));
+		await db
+			.delete(pushSubscription)
+			.where(eq(pushSubscription.endpoint, endpoint));
 		await db
 			.delete(notificationSetting)
 			.where(eq(notificationSetting.userId, firstUser.id));
