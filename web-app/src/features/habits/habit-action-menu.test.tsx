@@ -61,9 +61,7 @@ describe("HabitActionMenu", () => {
 		);
 		expect(fetchMock).not.toHaveBeenCalled();
 		await user.type(name, "  毎日読む  ");
-		await user.click(
-			screen.getByRole("radio", { name: "絵文字を設定しない" }),
-		);
+		await user.click(screen.getByRole("radio", { name: "絵文字を設定しない" }));
 		await user.click(screen.getByRole("button", { name: "保存" }));
 		await vi.waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
