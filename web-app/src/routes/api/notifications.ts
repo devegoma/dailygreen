@@ -5,64 +5,40 @@ import {
 	updateNotificationSettings,
 	upsertPushSubscription,
 } from "~/features/push/push-notifications.service.server";
-import { ApiError, jsonResponse } from "~/lib/api/errors";
-import { runAuthenticatedApiRoute } from "~/lib/api/route.server";
-
-async function readJsonBody(request: Request): Promise<unknown> {
-	try {
-		return await request.json();
-	} catch (error) {
-		throw new ApiError("INVALID_REQUEST", undefined, { cause: error });
-	}
-}
+import { parseJsonBody } from "~/lib/api/request";
+import { handleAuthenticatedApi } from "~/lib/api/route.server";
 
 export const Route = createFileRoute("/api/notifications")({
 	server: {
 		handlers: {
 			GET: ({ request }) =>
-				runAuthenticatedApiRoute({
+				handleAuthenticatedApi(
 					request,
-					operation: "notifications.get",
-					execute: async ({ user }) =>
-						jsonResponse(await getNotificationSettings(user), {
-							headers: { "cache-control": "no-store" },
-						}),
-				}),
+					async ({ user }) => getNotificationSettings(user),
+					{ successHeaders: { "cache-control": "no-store" } },
+				),
 			PATCH: ({ request }) =>
-				runAuthenticatedApiRoute({
-					request,
-					operation: "notifications.update",
-					execute: async ({ user }) =>
-						jsonResponse(
-							await updateNotificationSettings({
-								user,
-								body: await readJsonBody(request),
-							}),
-						),
-				}),
+				handleAuthenticatedApi(request, async ({ request: authenticatedRequest, user }) =>
+					updateNotificationSettings({
+						user,
+						body: await parseJsonBody(authenticatedRequest),
+					}),
+				),
 			PUT: ({ request }) =>
-				runAuthenticatedApiRoute({
-					request,
-					operation: "notifications.subscription.upsert",
-					execute: async ({ user }) => {
-						await upsertPushSubscription({
-							user,
-							body: await readJsonBody(request),
-						});
-						return new Response(null, { status: 204 });
-					},
+				handleAuthenticatedApi(request, async ({ request: authenticatedRequest, user }) => {
+					await upsertPushSubscription({
+						user,
+						body: await parseJsonBody(authenticatedRequest),
+					});
+					return new Response(null, { status: 204 });
 				}),
 			DELETE: ({ request }) =>
-				runAuthenticatedApiRoute({
-					request,
-					operation: "notifications.subscription.delete",
-					execute: async ({ user }) => {
-						await deletePushSubscription({
-							user,
-							body: await readJsonBody(request),
-						});
-						return new Response(null, { status: 204 });
-					},
+				handleAuthenticatedApi(request, async ({ request: authenticatedRequest, user }) => {
+					await deletePushSubscription({
+						user,
+						body: await parseJsonBody(authenticatedRequest),
+					});
+					return new Response(null, { status: 204 });
 				}),
 		},
 	},
