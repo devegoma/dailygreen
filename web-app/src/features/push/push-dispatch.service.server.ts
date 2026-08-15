@@ -78,9 +78,10 @@ async function claimDueUsers(now: Date): Promise<{
 	const currentTime = toJstTimeString(now);
 
 	return db.transaction(async (tx) => {
-		const [lockResult] = await tx.select({
-			acquired: sql<boolean>`pg_try_advisory_xact_lock(${PUSH_DISPATCH_LOCK_ID})`,
-		});
+		const lockRows = await tx.execute(
+			sql`select pg_try_advisory_xact_lock(${PUSH_DISPATCH_LOCK_ID}) as "acquired"`,
+		);
+		const lockResult = lockRows[0] as { acquired?: boolean } | undefined;
 		if (!lockResult?.acquired) {
 			return {
 				summary: { ...emptySummary(), locked: false },
