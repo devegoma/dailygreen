@@ -27,7 +27,9 @@ function hashToken(value: string): Buffer {
 	return createHash("sha256").update(value, "utf8").digest();
 }
 
-export function authenticateInternalJob(request: Request): { id: string } | null {
+export function authenticateInternalJob(
+	request: Request,
+): { id: string } | null {
 	if (!env.INTERNAL_JOB_TOKEN) {
 		return serviceUnavailable("内部job tokenが設定されていません。");
 	}
