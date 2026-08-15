@@ -24,6 +24,8 @@ services:
       target: dev
     ports:
       - "127.0.0.1:5173:5173"
+    env_file:
+      - ./notification-scheduler/.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dailygreen}}
     volumes:
@@ -39,7 +41,7 @@ services:
     build:
       context: ./notification-scheduler
     env_file:
-      - ./web-app/.env
+      - ./notification-scheduler/.env
     environment:
       INTERNAL_JOB_URL: http://web:5173/internal/jobs/push-dispatch
     depends_on:
