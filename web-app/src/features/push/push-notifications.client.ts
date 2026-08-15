@@ -18,6 +18,7 @@ export function isPushSupported(): boolean {
 	);
 }
 
+/** VAPID公開鍵のbase64url表現をPushManagerが受け取るバイト列へ変換する。 */
 export function urlBase64ToUint8Array(value: string): Uint8Array<ArrayBuffer> {
 	const padding = "=".repeat((4 - (value.length % 4)) % 4);
 	const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
