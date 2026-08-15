@@ -1,6 +1,7 @@
 import { AddHabitDialog } from "~/features/habits/add-habit-dialog";
 import { HabitList } from "~/features/habits/habit-list";
 import { TodaySummary } from "~/features/habits/today-summary";
+import { NotificationSettingsCard } from "~/features/push/notification-settings-card";
 import { ShareButton } from "~/features/share/share-button";
 import { ActivityLog } from "./activity-log";
 import type { HomeDataResponse } from "./home.contract";
@@ -58,6 +59,8 @@ export function HomeMainContent({
 					<ActivityLog entries={home.activityLog} />
 				</div>
 			</section>
+
+			<NotificationSettingsCard onUnauthorized={onUnauthorized} />
 
 			<section aria-labelledby="today-habits-heading" className="mt-10">
 				<div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
