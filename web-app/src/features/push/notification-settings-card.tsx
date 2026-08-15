@@ -9,7 +9,7 @@ import {
 	unregisterPushSubscription,
 	updateNotificationSettings,
 	urlBase64ToUint8Array,
-} from "./push-notifications.client";
+} from "./push-notifications.browser";
 
 type NotificationSettingsCardProps = {
 	onUnauthorized: () => void | Promise<void>;
