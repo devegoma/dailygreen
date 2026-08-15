@@ -64,9 +64,12 @@ describe("共有カードのActivity Log色", () => {
 		[0.5, "#4ade80"],
 		[0.75, "#15803d"],
 		[1, "#052e16"],
-	] as const)("completionRate=%s を既存レベル相当の色へ変換する", (rate, color) => {
-		expect(getShareActivityColor(rate)).toBe(color);
-	});
+	] as const)(
+		"completionRate=%s を既存レベル相当の色へ変換する",
+		(rate, color) => {
+			expect(getShareActivityColor(rate)).toBe(color);
+		},
+	);
 
 	it("範囲外の達成率を拒否する", () => {
 		expect(() => getShareActivityColor(1.2)).toThrow("Invalid completion rate");
