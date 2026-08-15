@@ -63,7 +63,10 @@ export function parseUpdateNotificationSettingsRequest(
 		request.enabled = body.enabled;
 	}
 	if ("notifyAt" in body) {
-		if (typeof body.notifyAt !== "string" || !notifyAtPattern.test(body.notifyAt)) {
+		if (
+			typeof body.notifyAt !== "string" ||
+			!notifyAtPattern.test(body.notifyAt)
+		) {
 			return invalidRequest();
 		}
 		request.notifyAt = body.notifyAt;
@@ -83,7 +86,9 @@ export function parsePushSubscriptionRequest(
 	if (!isJsonObject(body.keys)) {
 		return invalidRequest();
 	}
-	if (Object.keys(body.keys).some((field) => !subscriptionKeyFields.has(field))) {
+	if (
+		Object.keys(body.keys).some((field) => !subscriptionKeyFields.has(field))
+	) {
 		return invalidRequest();
 	}
 
