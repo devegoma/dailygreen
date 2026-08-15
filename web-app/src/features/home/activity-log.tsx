@@ -247,7 +247,7 @@ export function ActivityLog({ entries }: { entries: ActivityLogEntry[] }) {
 							role="grid"
 						>
 							{WEEKDAY_ROW_IDS.map((rowId, rowIndex) => (
-								/* biome-ignore lint/a11y/useSemanticElements lint/a11y/useFocusableInteractive: 非操作の可視化グリッドで、行自体をTab stopにしない。 */}
+								/* biome-ignore lint/a11y/useSemanticElements lint/a11y/useFocusableInteractive: 非操作の可視化グリッドで、行自体をTab stopにしない。 */
 								<div
 									aria-rowindex={rowIndex + 1}
 									className="grid h-2.5 gap-[3px]"
