@@ -50,7 +50,10 @@ describe("Push Subscription入力", () => {
 
 	it("expirationTimeのミリ秒値を受け付ける", () => {
 		expect(
-			parsePushSubscriptionRequest({ ...valid, expirationTime: 1_800_000_000_000 }),
+			parsePushSubscriptionRequest({
+				...valid,
+				expirationTime: 1_800_000_000_000,
+			}),
 		).toMatchObject({ expirationTime: 1_800_000_000_000 });
 	});
 
@@ -61,9 +64,14 @@ describe("Push Subscription入力", () => {
 				endpoint: "http://push.example.test/subscription/abc",
 			}),
 		);
-		expectInvalid(() => parsePushSubscriptionRequest({ ...valid, extra: true }));
 		expectInvalid(() =>
-			parsePushSubscriptionRequest({ ...valid, keys: { p256dh: "public-key" } }),
+			parsePushSubscriptionRequest({ ...valid, extra: true }),
+		);
+		expectInvalid(() =>
+			parsePushSubscriptionRequest({
+				...valid,
+				keys: { p256dh: "public-key" },
+			}),
 		);
 	});
 });
@@ -71,7 +79,9 @@ describe("Push Subscription入力", () => {
 describe("Subscription解除入力", () => {
 	it("HTTPS endpointだけを受け付ける", () => {
 		const endpoint = "https://push.example.test/subscription/abc";
-		expect(parseDeletePushSubscriptionRequest({ endpoint })).toEqual({ endpoint });
+		expect(parseDeletePushSubscriptionRequest({ endpoint })).toEqual({
+			endpoint,
+		});
 		expectInvalid(() =>
 			parseDeletePushSubscriptionRequest({ endpoint, extra: true }),
 		);
