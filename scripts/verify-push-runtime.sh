@@ -58,6 +58,17 @@ if (!token || token.length < 32) {
 console.log("scheduler runtime env: ok");
 NODE
 
+log "webコンテナの依存関係準備を待ちます"
+deps_ready=0
+for _ in $(seq 1 60); do
+  if docker compose exec -T web sh -c 'test -x node_modules/.bin/drizzle-kit' >/dev/null 2>&1; then
+    deps_ready=1
+    break
+  fi
+  sleep 1
+done
+[[ "$deps_ready" -eq 1 ]] || fail "60秒以内にweb依存関係の準備が完了しませんでした"
+
 log "DB migrationを適用します"
 docker compose exec -T web pnpm run db:migrate
 
