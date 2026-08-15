@@ -125,7 +125,9 @@ describe("AddHabitDialog", () => {
 		expect(
 			screen.getByRole("radio", { name: "絵文字を設定しない" }),
 		).not.toBeChecked();
-		expect(screen.getByText("📚", { selector: "span[aria-live]" })).toBeInTheDocument();
+		expect(
+			screen.getByText("📚", { selector: "span[aria-live]" }),
+		).toBeInTheDocument();
 
 		await user.keyboard("{ArrowRight}");
 		expect(screen.getByRole("radio", { name: "本を読む 📖" })).toBeChecked();
