@@ -74,6 +74,21 @@ describe("Push Subscription入力", () => {
 			}),
 		);
 	});
+
+	it("Date範囲外のexpirationTimeとbase64urlでない鍵を拒否する", () => {
+		expectInvalid(() =>
+			parsePushSubscriptionRequest({
+				...valid,
+				expirationTime: 8_640_000_000_000_001,
+			}),
+		);
+		expectInvalid(() =>
+			parsePushSubscriptionRequest({
+				...valid,
+				keys: { p256dh: "not valid!", auth: "auth-secret" },
+			}),
+		);
+	});
 });
 
 describe("Subscription解除入力", () => {
