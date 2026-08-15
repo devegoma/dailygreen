@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	serializePushSubscription,
 	urlBase64ToUint8Array,
-} from "./push-notifications.client";
+} from "./push-notifications.browser";
 
 describe("urlBase64ToUint8Array", () => {
 	it("VAPIDのbase64url文字列をapplicationServerKeyへ変換する", () => {
