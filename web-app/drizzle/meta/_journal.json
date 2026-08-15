@@ -1,41 +1,41 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1772269933443,
-      "tag": "0000_regular_deathstrike",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1780735283984,
-      "tag": "0001_regular_inhumans",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1783836036871,
-      "tag": "0002_bright_mathemanic",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1786181165724,
-      "tag": "0003_thick_warhawk",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1786764412637,
-      "tag": "0004_cuddly_marvel_zombies",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1772269933443,
+			"tag": "0000_regular_deathstrike",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1780735283984,
+			"tag": "0001_regular_inhumans",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1783836036871,
+			"tag": "0002_bright_mathemanic",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1786181165724,
+			"tag": "0003_thick_warhawk",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1786764412637,
+			"tag": "0004_cuddly_marvel_zombies",
+			"breakpoints": true
+		}
+	]
 }
