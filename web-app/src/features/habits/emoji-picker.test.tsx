@@ -13,9 +13,7 @@ describe("EmojiPicker", () => {
 		const user = userEvent.setup();
 		render(<PickerHarness initialValue="👨‍👩‍👧‍👦" />);
 
-		expect(screen.getByLabelText("絵文字を直接入力")).toHaveValue(
-			"👨‍👩‍👧‍👦",
-		);
+		expect(screen.getByLabelText("絵文字を直接入力")).toHaveValue("👨‍👩‍👧‍👦");
 		expect(
 			screen.getByText("👨‍👩‍👧‍👦", { selector: "span[aria-live]" }),
 		).toBeInTheDocument();
