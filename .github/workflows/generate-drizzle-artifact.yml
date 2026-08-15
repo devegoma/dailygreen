@@ -1,0 +1,43 @@
+name: Generate Drizzle Artifact
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgresql://user:password@localhost:5432/dailygreen_test
+  BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-123456
+  BETTER_AUTH_URL: http://localhost:5173
+  GOOGLE_CLIENT_ID: test-google-client-id
+  GOOGLE_CLIENT_SECRET: test-google-client-secret
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web-app/.node-version
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web-app
+      - run: pnpm run db:generate
+        working-directory: web-app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-drizzle
+          path: |
+            web-app/drizzle/0004_*.sql
+            web-app/drizzle/meta/0004_snapshot.json
+            web-app/drizzle/meta/_journal.json
+          if-no-files-found: error
