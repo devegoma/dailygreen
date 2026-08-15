@@ -38,20 +38,22 @@ Web Pushの仕様上、アプリサーバーから各ブラウザベンダーの
                 +------v-------+
                 | PostgreSQL   |
                 +--------------+
-                       ^
-                       |
-                   DB access
-                       |
-             +---------+----------------+
+
+             +--------------------------+
              | notification-scheduler   |
              | no published port        |
+             | no DB credentials        |
              | no Docker socket mount   |
              +-------------+------------+
                            |
                  HTTP on Docker network
                            |
                   internal job endpoint
+                           |
+                           +-------------> web
 ```
+
+`notification-scheduler` はPostgreSQLへ直接接続しない。内部HTTP endpointを通じて`web`を起動するだけとし、DBアクセス・通知対象判定・Web Push送信はすべて`web`側へ閉じ込める。
 
 ## 3. Web / scheduler分離
 
@@ -80,7 +82,7 @@ schedulerは「時刻を刻んで内部HTTP endpointを呼ぶ」以外の業務�
 
 例: `POST /internal/jobs/push-dispatch`
 
-- Nginxでは外部から到達できないlocationとして扱う
+- Nginxでは `/internal/jobs/` 名前空間全体を外部から到達できないlocationとして扱う
 - さらに `INTERNAL_JOB_TOKEN` をheaderで検証する
 - token比較は固定長化またはtiming-safe比較を用いる
 - request bodyは不要
@@ -172,6 +174,8 @@ runtime注入:
 production image build時には渡さない。
 
 VAPID公開鍵だけはブラウザへ公開してよい。秘密鍵とinternal tokenはserver-onlyとする。
+
+Composeでは`web-app/.env`を`web`へ、`notification-scheduler/.env`をschedulerへ個別に注入する。scheduler側には`INTERNAL_JOB_TOKEN`以外のWebアプリ秘密値を持たせない。
 
 ## 11. 障害分離
 
