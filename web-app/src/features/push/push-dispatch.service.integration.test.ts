@@ -156,7 +156,10 @@ describe("Push dispatch PostgreSQL integration", () => {
 			sendPush: async (subscription) => {
 				calls += 1;
 				if (subscription.endpoint.endsWith("/gone")) {
-					throw { statusCode: 410 };
+					const goneError = Object.assign(new Error("subscription gone"), {
+						statusCode: 410,
+					});
+					throw goneError;
 				}
 				return {};
 			},
