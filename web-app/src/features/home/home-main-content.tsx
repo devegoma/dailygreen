@@ -1,6 +1,8 @@
 import { AddHabitDialog } from "~/features/habits/add-habit-dialog";
 import { HabitList } from "~/features/habits/habit-list";
 import { TodaySummary } from "~/features/habits/today-summary";
+import { NotificationSettingsCard } from "~/features/push/notification-settings-card";
+import { ShareButton } from "~/features/share/share-button";
 import { ActivityLog } from "./activity-log";
 import type { HomeDataResponse } from "./home.contract";
 
@@ -41,19 +43,24 @@ export function HomeMainContent({
 				</div>
 			) : null}
 			<section aria-labelledby="activity-log-heading">
-				<div className="mb-4">
-					<h1
-						className="text-xl font-semibold tracking-tight text-stone-950"
-						id="activity-log-heading"
-					>
-						アクティビティログ
-					</h1>
-					<p className="mt-1 text-sm text-stone-600">直近365日の達成状況</p>
+				<div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
+					<div>
+						<h1
+							className="text-xl font-semibold tracking-tight text-stone-950"
+							id="activity-log-heading"
+						>
+							アクティビティログ
+						</h1>
+						<p className="mt-1 text-sm text-stone-600">直近365日の達成状況</p>
+					</div>
+					<ShareButton home={home} />
 				</div>
 				<div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
 					<ActivityLog entries={home.activityLog} />
 				</div>
 			</section>
+
+			<NotificationSettingsCard onUnauthorized={onUnauthorized} />
 
 			<section aria-labelledby="today-habits-heading" className="mt-10">
 				<div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">

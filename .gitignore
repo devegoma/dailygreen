@@ -8,5 +8,8 @@ scripts/
 .idea/
 *.iml
 
+# notification-schedulerの内部job token
+notification-scheduler/.env
+
 # リバースプロキシ用証明書
 nginx/cert/

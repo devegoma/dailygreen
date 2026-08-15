@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import appCss from "~/app.css?url";
+import { ServiceWorkerRegistration } from "~/features/push/service-worker-registration";
 
 export const Route = createRootRouteWithContext<{
 	queryClient: QueryClient;
@@ -15,9 +16,15 @@ export const Route = createRootRouteWithContext<{
 		meta: [
 			{ charSet: "utf-8" },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
+			{ name: "theme-color", content: "#052e16" },
+			{ name: "mobile-web-app-capable", content: "yes" },
+			{ name: "apple-mobile-web-app-capable", content: "yes" },
+			{ name: "apple-mobile-web-app-status-bar-style", content: "default" },
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
+			{ rel: "manifest", href: "/manifest.webmanifest" },
+			{ rel: "icon", href: "/app-icon.svg", type: "image/svg+xml" },
 			{ rel: "preconnect", href: "https://fonts.googleapis.com" },
 			{
 				rel: "preconnect",
@@ -41,6 +48,7 @@ function RootComponent() {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<RootDocument>
+				<ServiceWorkerRegistration />
 				<Outlet />
 			</RootDocument>
 		</QueryClientProvider>
