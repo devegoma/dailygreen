@@ -216,7 +216,10 @@ export function ActivityLog({ entries }: { entries: ActivityLogEntry[] }) {
 					ref={scrollAreaRef}
 					className="min-w-0 flex-1 overflow-x-auto pb-1"
 				>
-					<div className="min-w-[38rem]">
+					<div
+						className="w-max min-w-full px-px"
+						data-testid="activity-log-scroll-content"
+					>
 						<div
 							aria-hidden="true"
 							className="mb-[3px] grid h-2.5 gap-[3px] text-[0.625rem] leading-2.5 text-stone-500"
