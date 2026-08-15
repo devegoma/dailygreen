@@ -28,7 +28,8 @@ export type ShareSummary = {
 
 export function getShareSummary(home: HomeDataResponse): ShareSummary {
 	return {
-		completedToday: home.habits.filter((habit) => habit.isCompletedToday).length,
+		completedToday: home.habits.filter((habit) => habit.isCompletedToday)
+			.length,
 		totalHabits: home.habits.length,
 		longestCurrentStreak: home.habits.reduce(
 			(max, habit) => Math.max(max, habit.currentStreak),
@@ -46,9 +47,7 @@ export function buildShareText(home: HomeDataResponse): string {
 	].join("\n");
 }
 
-export function getShareActivityColor(
-	completionRate: number | null,
-): string {
+export function getShareActivityColor(completionRate: number | null): string {
 	if (completionRate === null) {
 		return ACTIVITY_COLORS.null;
 	}
@@ -129,10 +128,10 @@ function drawStat(
 	context.stroke();
 
 	context.fillStyle = "#57534e";
-	context.font = '500 28px Inter, system-ui, sans-serif';
+	context.font = "500 28px Inter, system-ui, sans-serif";
 	context.fillText(label, x + 34, 326);
 	context.fillStyle = "#0c0a09";
-	context.font = '700 58px Inter, system-ui, sans-serif';
+	context.font = "700 58px Inter, system-ui, sans-serif";
 	context.fillText(value, x + 34, 396);
 }
 
@@ -155,20 +154,15 @@ function drawActivityGrid(
 		const x = GRID_X + column * (GRID_CELL_SIZE + GRID_GAP);
 		const y = GRID_Y + row * (GRID_CELL_SIZE + GRID_GAP);
 		context.fillStyle = getShareActivityColor(entry.completionRate);
-		drawRoundedRect(
-			context,
-			x,
-			y,
-			GRID_CELL_SIZE,
-			GRID_CELL_SIZE,
-			3,
-		);
+		drawRoundedRect(context, x, y, GRID_CELL_SIZE, GRID_CELL_SIZE, 3);
 		context.fill();
 	}
 }
 
 /** ブラウザ上だけで共有用PNGを生成する。サーバーや外部ストレージへデータを送らない。 */
-export async function createShareCardBlob(home: HomeDataResponse): Promise<Blob> {
+export async function createShareCardBlob(
+	home: HomeDataResponse,
+): Promise<Blob> {
 	if (typeof document === "undefined") {
 		throw new Error("Share card can only be generated in a browser");
 	}
@@ -186,10 +180,10 @@ export async function createShareCardBlob(home: HomeDataResponse): Promise<Blob>
 	context.fillRect(0, 0, CARD_SIZE, CARD_SIZE);
 
 	context.fillStyle = "#052e16";
-	context.font = '700 62px Inter, system-ui, sans-serif';
+	context.font = "700 62px Inter, system-ui, sans-serif";
 	context.fillText("Daily Green", 92, 132);
 	context.fillStyle = "#57534e";
-	context.font = '500 30px Inter, system-ui, sans-serif';
+	context.font = "500 30px Inter, system-ui, sans-serif";
 	context.fillText("毎日の積み上げを、静かに育てる。", 92, 184);
 
 	drawStat(
@@ -206,12 +200,12 @@ export async function createShareCardBlob(home: HomeDataResponse): Promise<Blob>
 	);
 
 	context.fillStyle = "#1c1917";
-	context.font = '700 34px Inter, system-ui, sans-serif';
+	context.font = "700 34px Inter, system-ui, sans-serif";
 	context.fillText("直近365日の Activity Log", 92, 510);
 	drawActivityGrid(context, home.activityLog);
 
 	context.fillStyle = "#78716c";
-	context.font = '500 24px Inter, system-ui, sans-serif';
+	context.font = "500 24px Inter, system-ui, sans-serif";
 	context.fillText("daily green • keep growing", 92, 982);
 
 	return await new Promise<Blob>((resolve, reject) => {
