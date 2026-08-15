@@ -166,7 +166,10 @@ export function EmojiPicker({
 			</p>
 
 			<div className="mt-3">
-				<label className="block text-sm font-medium text-stone-700" htmlFor={inputId}>
+				<label
+					className="block text-sm font-medium text-stone-700"
+					htmlFor={inputId}
+				>
 					絵文字を直接入力
 				</label>
 				<input
