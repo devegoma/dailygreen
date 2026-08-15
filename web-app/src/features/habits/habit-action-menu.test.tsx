@@ -39,7 +39,7 @@ describe("HabitActionMenu", () => {
 		).toBeInTheDocument();
 		expect(screen.getByLabelText("習慣名")).toHaveFocus();
 		expect(screen.getByLabelText("習慣名")).toHaveValue("読書");
-		expect(screen.getByLabelText("絵文字（任意）")).toHaveValue("📚");
+		expect(screen.getByRole("radio", { name: "読書 📚" })).toBeChecked();
 		await user.keyboard("{Escape}");
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		expect(trigger).toHaveFocus();
@@ -61,7 +61,9 @@ describe("HabitActionMenu", () => {
 		);
 		expect(fetchMock).not.toHaveBeenCalled();
 		await user.type(name, "  毎日読む  ");
-		await user.clear(screen.getByLabelText("絵文字（任意）"));
+		await user.click(
+			screen.getByRole("radio", { name: "絵文字を設定しない" }),
+		);
 		await user.click(screen.getByRole("button", { name: "保存" }));
 		await vi.waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
