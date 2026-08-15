@@ -9,9 +9,7 @@ afterEach(() => {
 describe("ActivityLog mobile edge spacing", () => {
 	it("スクロール内容を実幅で保持し、両端セルのoutline用余白を確保する", () => {
 		render(
-			<ActivityLog
-				entries={[{ date: "2026-08-15", completionRate: 1 }]}
-			/>,
+			<ActivityLog entries={[{ date: "2026-08-15", completionRate: 1 }]} />,
 		);
 
 		expect(screen.getByTestId("activity-log-scroll-area")).toHaveClass(
