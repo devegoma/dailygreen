@@ -111,3 +111,7 @@ jobs:
       - run: pnpm run build
       - name: Build production Docker image
         run: docker build --target runner --tag dailygreen:ci .
+      - name: Check notification scheduler syntax
+        run: node --check ../notification-scheduler/index.mjs
+      - name: Build notification scheduler Docker image
+        run: docker build --tag dailygreen-notification-scheduler:ci ../notification-scheduler
