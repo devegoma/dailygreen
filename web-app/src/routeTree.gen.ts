@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHabitsRouteImport } from './routes/api/habits'
 import { Route as ApiHomeRouteImport } from './routes/api/home'
+import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as HealthLiveRouteImport } from './routes/health/live'
 import { Route as HealthReadyRouteImport } from './routes/health/ready'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -32,6 +33,11 @@ const ApiHabitsRoute = ApiHabitsRouteImport.update({
 const ApiHomeRoute = ApiHomeRouteImport.update({
   id: '/api/home',
   path: '/api/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
+  id: '/api/notifications',
+  path: '/api/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HealthLiveRoute = HealthLiveRouteImport.update({
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/habits': typeof ApiHabitsRouteWithChildren
   '/api/home': typeof ApiHomeRoute
+  '/api/notifications': typeof ApiNotificationsRoute
   '/health/live': typeof HealthLiveRoute
   '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/habits': typeof ApiHabitsRouteWithChildren
   '/api/home': typeof ApiHomeRoute
+  '/api/notifications': typeof ApiNotificationsRoute
   '/health/live': typeof HealthLiveRoute
   '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/habits': typeof ApiHabitsRouteWithChildren
   '/api/home': typeof ApiHomeRoute
+  '/api/notifications': typeof ApiNotificationsRoute
   '/health/live': typeof HealthLiveRoute
   '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/habits'
     | '/api/home'
+    | '/api/notifications'
     | '/health/live'
     | '/health/ready'
     | '/api/auth/$'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/habits'
     | '/api/home'
+    | '/api/notifications'
     | '/health/live'
     | '/health/ready'
     | '/api/auth/$'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/habits'
     | '/api/home'
+    | '/api/notifications'
     | '/health/live'
     | '/health/ready'
     | '/api/auth/$'
@@ -140,6 +152,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHabitsRoute: typeof ApiHabitsRouteWithChildren
   ApiHomeRoute: typeof ApiHomeRoute
+  ApiNotificationsRoute: typeof ApiNotificationsRoute
   HealthLiveRoute: typeof HealthLiveRoute
   HealthReadyRoute: typeof HealthReadyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -166,6 +179,13 @@ declare module '@tanstack/react-router' {
       path: '/api/home'
       fullPath: '/api/home'
       preLoaderRoute: typeof ApiHomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notifications': {
+      id: '/api/notifications'
+      path: '/api/notifications'
+      fullPath: '/api/notifications'
+      preLoaderRoute: typeof ApiNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/health/live': {
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHabitsRoute: ApiHabitsRouteWithChildren,
   ApiHomeRoute: ApiHomeRoute,
+  ApiNotificationsRoute: ApiNotificationsRoute,
   HealthLiveRoute: HealthLiveRoute,
   HealthReadyRoute: HealthReadyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

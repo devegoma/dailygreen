@@ -21,6 +21,7 @@ const serverEnvSchema = v.pipe(
 		BETTER_AUTH_URL: v.pipe(v.string(), v.url()),
 		GOOGLE_CLIENT_ID: nonEmpty,
 		GOOGLE_CLIENT_SECRET: nonEmpty,
+		VAPID_PUBLIC_KEY: v.optional(nonEmpty),
 		APP_VERSION: v.optional(nonEmpty, "development"),
 	}),
 	v.forward(
