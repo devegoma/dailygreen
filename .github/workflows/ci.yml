@@ -89,7 +89,16 @@ jobs:
           cache-dependency-path: web-app/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run db:check
-      - run: pnpm run db:generate && git diff --exit-code -- drizzle
+      - run: pnpm run db:generate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-drizzle
+          path: |
+            web-app/drizzle/0004_*.sql
+            web-app/drizzle/meta/0004_snapshot.json
+            web-app/drizzle/meta/_journal.json
+          if-no-files-found: error
+      - run: git diff --exit-code -- drizzle
       - run: pnpm run db:migrate
       - run: pnpm run test:integration
 
