@@ -1,0 +1,40 @@
+name: Format Drizzle Temp
+
+on:
+  push:
+    branches: [agent/push-subscription-schema-v2]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/push-subscription-schema-v2
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web-app/.node-version
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web-app
+      - run: pnpm exec biome format --write drizzle/meta/0004_snapshot.json drizzle/meta/_journal.json
+        working-directory: web-app
+      - name: Commit formatted metadata
+        run: |
+          if git diff --quiet -- web-app/drizzle/meta; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web-app/drizzle/meta/0004_snapshot.json web-app/drizzle/meta/_journal.json
+          git commit -m "Drizzle metadataをBiome整形"
+          git push origin HEAD:agent/push-subscription-schema-v2
