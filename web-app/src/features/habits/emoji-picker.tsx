@@ -174,7 +174,7 @@ export function EmojiPicker({
 					className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-950 shadow-sm outline-none placeholder:text-stone-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-500"
 					id={inputId}
 					onChange={(event) => onChange(event.target.value)}
-					placeholder="例: 📚"
+					placeholder="好きな絵文字を入力"
 					type="text"
 					value={value}
 				/>
