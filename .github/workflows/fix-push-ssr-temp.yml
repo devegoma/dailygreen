@@ -16,75 +16,20 @@ jobs:
         with:
           ref: agent/fix-push-ssr-build
 
-      - name: Fix SSR-safe Push module naming and docs
-        shell: bash
+      - name: Rename browser-safe module
         run: |
-          set -euo pipefail
-
-          git mv \
-            web-app/src/features/push/push-notifications.client.ts \
-            web-app/src/features/push/push-notifications.browser.ts
-          git mv \
-            web-app/src/features/push/push-notifications.client.test.ts \
-            web-app/src/features/push/push-notifications.browser.test.ts
-
-          sed -i \
-            's|"./push-notifications.client"|"./push-notifications.browser"|g' \
-            web-app/src/features/push/notification-settings-card.tsx \
-            web-app/src/features/push/push-notifications.browser.test.ts
-
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('docs/push-notifications.md')
-          text = path.read_text()
-          old = '''                +------v-------+
-                | PostgreSQL   |
-                +--------------+
-                       ^
-                       |
-                   DB access
-                       |
-             +---------+----------------+
-             | notification-scheduler   |
-             | no published port        |
-             | no Docker socket mount   |
-             +-------------+------------+
-                           |
-                 HTTP on Docker network
-                           |
-                  internal job endpoint
-'''
-          new = '''                +------v-------+
-                | PostgreSQL   |
-                +--------------+
-
-             +--------------------------+
-             | notification-scheduler   |
-             | no published port        |
-             | no DB credentials        |
-             | no Docker socket mount   |
-             +-------------+------------+
-                           |
-                 HTTP on Docker network
-                           |
-                  internal job endpoint
-                           |
-                           +-------------> web
-'''
-          if old not in text:
-              raise SystemExit('expected architecture diagram block not found')
-          path.write_text(text.replace(old, new))
-          PY
-
+          set -eux
+          git mv web-app/src/features/push/push-notifications.client.ts web-app/src/features/push/push-notifications.browser.ts
+          git mv web-app/src/features/push/push-notifications.client.test.ts web-app/src/features/push/push-notifications.browser.test.ts
+          sed -i 's#push-notifications\.client#push-notifications.browser#g' web-app/src/features/push/notification-settings-card.tsx
+          sed -i 's#push-notifications\.client#push-notifications.browser#g' web-app/src/features/push/push-notifications.browser.test.ts
           rm .github/workflows/fix-push-ssr-temp.yml
 
       - name: Commit fixes
-        shell: bash
         run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -eux
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m "Push通知UIのSSR buildを修正"
+          git commit -m 'Push通知UIのSSR buildを修正'
           git push origin HEAD:agent/fix-push-ssr-build
