@@ -1,38 +1,33 @@
 # Daily Green DB 設計書
 
-## 1. 設計方針
+## 1. 位置づけ
 
-- 本書は、現行実装そのものではなく、今回合意した MVP 要件に合わせて更新する目標 DB 設計を記述する
-- 認証は Better Auth を前提とし、ゲスト利用は扱わない
-- 習慣は毎日繰り返す単位で管理し、習慣自体に終了期限は持たせない
-- `timestamptz` は絶対時刻として保存し、JST（Asia/Tokyo）の日付境界への変換はアプリケーション側で行う
-- `daily_record` は未達成管理テーブルではなく、達成時のみ作成される達成記録テーブルとして扱う
-- 未達成はレコード欠損で表現し、`record_status` のような状態カラムは持たない
-- Activity Log は表示時点で `archivedAt IS NULL` の習慣だけを対象とし、`createdAt` は各日付で習慣が作成済みだったかの判定に使用する
-- `habit.currentStreak` と `habit.maxStreak` は参照しやすさのために保持する。ホーム画面取得時の Lazy Update は、期限切れの `currentStreak` を `0` にする処理に限定する
+この文書は **現在のアプリケーションスキーマ** を説明する。
 
+現行スキーマの実装上の source of truth は [`web-app/src/db/schema.ts`](../web-app/src/db/schema.ts)。`web-app/drizzle/` 配下は過去から現在までの migration 履歴であり、初期 migration に現在は存在しないカラム・テーブルが含まれていても削除しない。
 
-## 2. ER 図
+## 2. 現行テーブル
 
-### 2.1 MVP 必須テーブル
+アプリ固有テーブルは次の2つ。
 
-MVP で実装対象とするのは、Better Auth の標準テーブルと `habit`、`daily_record` である。
+- `habit`
+- `daily_record`
+
+これに Better Auth の認証テーブルを利用する。
+
+- `user`
+- `session`
+- `account`
+- `verification`
+
+現在のスキーマには `share_link` / `push_subscription` は存在しない。
 
 ```mermaid
 erDiagram
-    direction TB
     daily_record }o--|| habit : "has"
     habit }o--|| user : "manages"
     session }o--|| user : "owns"
     account }o--|| user : "links"
-
-    daily_record {
-        uuid id PK
-        uuid habitId FK
-        date date "YYYY-MM-DD"
-        timestamptz completedAt
-        %% UK: habitId と date の複合ユニーク制約
-    }
 
     habit {
         uuid id PK
@@ -41,9 +36,16 @@ erDiagram
         text emoji
         int currentStreak
         int maxStreak
-        timestamptz createdAt
         timestamptz archivedAt "NULL = active"
+        timestamptz createdAt
         timestamptz updatedAt
+    }
+
+    daily_record {
+        uuid id PK
+        uuid habitId FK
+        date date "YYYY-MM-DD"
+        timestamptz completedAt
     }
 
     user {
@@ -52,176 +54,105 @@ erDiagram
         text email UK
         boolean emailVerified
         text image
-        text timezone "Asia/Tokyo"
+        text timezone
         timestamptz createdAt
         timestamptz updatedAt
-    }
-
-    session {
-        text id PK
-        text userId FK
-        text token UK
-        timestamptz expiresAt
-        text ipAddress
-        text userAgent
-        timestamptz createdAt
-        timestamptz updatedAt
-    }
-
-    account {
-        text id PK
-        text userId FK
-        text accountId
-        text providerId "google"
-        text accessToken
-        text refreshToken
-        text idToken
-        timestamptz accessTokenExpiresAt
-        timestamptz refreshTokenExpiresAt
-        text scope
-        text password
-        timestamptz createdAt
-        timestamptz updatedAt
-    }
-
-    verification {
-        text id PK
-        text identifier
-        text value
-        timestamptz expiresAt
-        timestamptz createdAt
-        timestamptz updatedAt
-    }
-
-```
-
-### 2.2 将来拡張テーブル
-
-`share_link` と `push_subscription` は将来拡張用であり、MVP のマイグレーション・実装・API の対象外とする。
-
-```mermaid
-erDiagram
-    user ||--o{ share_link : "creates"
-    user ||--o{ push_subscription : "subscribes"
-
-    share_link {
-        text id PK "ランダムな短縮文字列"
-        text userId FK
-        boolean isActive
-        timestamptz createdAt
-    }
-
-    push_subscription {
-        uuid id PK
-        text userId FK
-        text token UK
-        timestamptz createdAt
     }
 ```
 
+## 3. `habit`
 
-## 3. テーブル定義
+ユーザーごとの習慣マスタ。
 
-### 3.1 `habit`
-
-ユーザーごとの習慣マスタ。MVP では毎日繰り返す習慣のみを扱う。
-
-- `name`: タスク名。習慣一覧は `name`、`createdAt`、`id` の順にすべて昇順でソートする
-- `emoji`: 習慣カードに表示する任意のアイコン。未設定の場合は空文字とする (NOT NULL)
-- `currentStreak`: 直近の連続達成日数
+- `id`: UUID primary key
+- `userId`: Better Auth `user.id` への FK。user 削除時は cascade
+- `name`: 習慣名
+- `emoji`: 任意の絵文字。未設定時は空文字
+- `currentStreak`: 現在の連続達成日数
 - `maxStreak`: 過去最高の連続達成日数
-- `createdAt`: 習慣が対象になった開始日時
-- `archivedAt`: アーカイブ日時。`NULL` の間だけホーム画面の対象習慣とする
-- `updatedAt`: 習慣情報の更新日時
+- `archivedAt`: `NULL` の間だけ active
+- `createdAt`: 作成日時
+- `updatedAt`: 更新日時
 
-`archivedAt` は active 判定に使用する。Activity Log でも、表示時点で `archivedAt IS NULL` の習慣だけを過去日を含む全日付の計算対象とする。
-MVPでは期限は全習慣共通で **翌日 00:00 JST**（当日 24:00 と同義）のため、習慣ごとの `deadTime` カラムは持たない。
+`habit_user_id_archived_at_id_idx(userId, archivedAt, id)` を持つ。
 
-### 3.2 `daily_record`
+active habit はユーザーあたり最大10件、アーカイブ済みを含む総数は最大1000件とする。上限判定と insert は並行作成でも上限を超えないようアプリケーションの transaction で直列化する。
 
-達成記録テーブル。未達成を表すテーブルではない。
+## 4. `daily_record`
 
-- レコードは習慣を当日中に達成したときだけ作成する
-- 未達成日はレコードを作成しない
-- `date` は確定した達成日
-- `completedAt` は実際に達成操作を行った時刻
-- `UNIQUE(habitId, date)` により、同一習慣・同一日付の重複達成を防ぐ
+達成した事実だけを保存する。
 
-`status` カラムは持たない。MVP では `done` / `missed` の状態を 1 行で表さず、「達成した日だけ行がある」設計とする。
+- `id`: UUID primary key
+- `habitId`: `habit.id` への FK。habit 削除時は cascade
+- `date`: JST 基準の達成日 `YYYY-MM-DD`
+- `completedAt`: 実際の達成操作時刻
 
-### 3.3 認証関連テーブル
+`UNIQUE(habitId, date)` により同一習慣・同一日の重複達成を防ぐ。
 
-Better Auth の標準テーブルを利用する。
+未達成日はレコードを作成しない。`status`、`missed`、遅延達成用の状態は持たない。
+
+## 5. 認証テーブル
+
+Better Auth の標準構造を利用する。
 
 - `user`
 - `session`
 - `account`
 - `verification`
 
-`user.timezone` カラムは現行 Better Auth 拡張の保持項目として残るが、MVP の日付切り替え、締め時刻判定、`daily_record.date` の解釈には使用しない。
+`user.timezone` は現在も保持するが、Daily Green の業務日付は JST 固定であり、日付切り替え判定には利用しない。
 
-### 3.4 将来拡張テーブル
+OAuth token を保存する場合の扱いは [operations.md](./operations.md) を参照する。
 
-- `share_link`: シェア用 URL を発行するためのテーブル
-- `push_subscription`: 通知先デバイスを保持するためのテーブル
+## 6. 日付・時刻
 
-これらは MVP 実装対象外とし、将来導入する場合に認証済みユーザーへ紐づく補助情報として分離して持つ。
+- `timestamptz` は絶対時刻として保存する
+- 業務日付は JST（Asia/Tokyo）固定
+- DB session timezone に依存して日付境界を判定しない
+- 日付 D の境界はアプリケーション側で `D 00:00 JST` から `D+1日 00:00 JST` の半開区間として扱う
+- API の `date-time` は JST オフセット `+09:00` を持つ RFC 3339 文字列へ変換する
 
-## 4. 制約と運用ルール
+## 7. Activity Log 集計
 
-### 型とキーの方針
+Activity Log は表示時点で active な習慣だけを対象に都度集計する。
 
-- 認証系テーブル (`user`, `session`, `account`, `verification`) と、それを参照する `userId` は Better Auth に合わせて `text` 型とする
-- MVP のアプリ固有テーブル (`habit`, `daily_record`) の ID は `uuid` 型とする
-- 将来拡張では `push_subscription.id` を `uuid` 型、`share_link.id` を共有 URL 用の短いランダム文字列を格納する `text` 型とする
-- 将来 `push_subscription` を導入する場合、`token` は二重送信防止のため `UNIQUE` 制約を持たせる
+- 日付 D の対象習慣: `createdAt < D+1日 00:00 JST` かつ `archivedAt IS NULL`
+- 分母: 対象習慣数
+- 分子: 対象習慣に属する `daily_record` のうち `date = D` の件数
+- archive 済み習慣は過去日の分子・分母からも除外する
+- 当日は未確定なので `completionRate = null`
+- 過去日でも分母が0なら `completionRate = null`
 
-### `timestamptz` の扱い
+この設計では archive 後に過去日の Activity Log が変化し得る。
 
-- `createdAt`、`archivedAt`、`updatedAt`、`completedAt` などの `timestamptz` は絶対時刻として保存する
-- DB セッションのタイムゾーン表現に依存して業務日付を判定しない
-- 日付 D の境界 `D 00:00 JST` と `D+1日 00:00 JST` はアプリケーション側で絶対時刻へ変換して比較する
-- API で `date-time` を返すときは、アプリケーション側で JST のオフセット `+09:00` を持つ RFC 3339 文字列へ変換する
+## 8. ストリーク
 
-### habit 件数上限
+- complete 時に `currentStreak` / `maxStreak` を更新する
+- 未達成による reset は定期バッチでは行わない
+- ホーム画面取得前の Lazy Update で期限切れの `currentStreak` を `0` にする
+- Lazy Update は履歴からの完全再計算ではない
 
-- active habit（`archivedAt IS NULL`）はユーザーあたり最大 10 件とする
-- アーカイブ済みを含む habit 総数はユーザーあたり最大 1000 件とする
-- 上限判定と `habit` の INSERT は、同一ユーザーによる並行作成でも上限を超えないようトランザクション内で直列化する
+## 9. Migration 履歴について
 
-### `daily_record` の整合性
+初期 migration `0000_regular_deathstrike.sql` には、初期設計時点の以下が含まれている。
 
-- `daily_record` には `userId` を持たせず、`daily_record -> habit -> userId` で所有者を特定する
-- 所有者情報は `habit` 経由で一元管理し、`daily_record` 側に `userId` を重複保持しないことで「`daily_record.userId` と `habit.userId` の不整合」が起こらないようにする
-- 達成記録の重複防止は `UNIQUE(habitId, date)` で保証する
-- 他ユーザーの習慣へ記録を付けない保証は、DB ではなくアプリケーション側の認可処理（ログインユーザーと `habit.userId` の照合）で担保する
-- 同じ habit に対する update / archive / complete は共通の排他機構で直列化し、先に成立した処理を優先する
-- update が先に成立した場合、archive / complete は更新後の `name` / `emoji` を対象に処理する
-- archive が先に成立した場合、後続の update / complete はアーカイブ済み状態を検出して失敗し、complete は `daily_record` を残さない
-- complete が先に成立した場合、`daily_record` の INSERT と `currentStreak` / `maxStreak` の UPDATE をコミットした後、後続の update / archive が成立する
+- `record_status`
+- `daily_record.status`
+- `habit.deadTime`
+- `habit.isArchived`
+- `share_link`
+- `push_subscription`
 
-### Activity Log の集計
+これらは後続 migration で削除・置換済み。
 
-Activity Log は、表示時点で active な習慣だけを対象に都度集計する。過去日の分母を当時の状態で固定・再現する設計にはしない。
+- `0001_regular_inhumans.sql`: `status` / `deadTime` / `isArchived` / `record_status` を削除し、`archivedAt` へ移行
+- `0002_bright_mathemanic.sql`: `share_link` / `push_subscription` を削除
+- `0003_thick_warhawk.sql`: active habit 取得向け index を追加
 
-- 日付 D の対象習慣は、`habit.createdAt < D+1日 00:00 JST` かつ `habit.archivedAt IS NULL` を満たす habit とする
-- 分母は、日付 D の対象習慣数とする
-- 分子は、対象習慣に属する `daily_record` のうち `date = D` の件数とする
-- アーカイブ済み習慣は、過去日の分子・分母からも除外する
-- そのため、習慣の archive 後は過去日の `completionRate` と表示色が変わり得る
-- 当日は未確定のため `completionRate = null` とし、過去日でも分母が `0` の場合は `completionRate = null` とする
+**過去 migration や対応する Drizzle snapshot は、適用済み環境を再現するための履歴なので削除・書き換えない。**
 
-### ストリークの扱い
+## 10. シェア機能との関係
 
-- 習慣達成時に `currentStreak` を増やし、必要に応じて `maxStreak` を更新する
-- 未達成によるストリーク切れはバッチで反映しない
-- その代わり、ホーム画面取得前に直近の `daily_record.date` を確認し、`currentStreak > 0` かつ直近達成日が `null` または「昨日」より前の習慣を `0` に更新する
-- Lazy Update はこの `0` リセットだけを行い、`daily_record` から連続日数を完全再計算して非ゼロ値へ補正する処理は行わない
-- ホーム画面には補正後の値を返す
+ソーシャルシェア v1 は DB を使用しない。
 
-Lazy Update の読み取りまたは更新に失敗した場合は、補正前の `currentStreak` をレスポンスに使用せず、ホーム画面 API 全体を失敗させる。
-
-## 5. 補足
-
-- 本設計では `deadTime`、`record_status`、`missed` レコードを前提としない
-- 期限後達成は存在しないため、`daily_record` に遅延達成を表す状態や列は不要
+共有用 PNG はブラウザの Canvas で生成し、サーバーへ保存しない。公開 URL も発行しないため、`share_link` のようなテーブルは不要である。
