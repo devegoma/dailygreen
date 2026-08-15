@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useRef, useState } from "react";
 import type { HomeHabit } from "~/features/home/home.contract";
+import { EmojiPicker } from "./emoji-picker";
 import { getEditHabitErrorMessage } from "./habit-dialog-errors";
 import { validateHabitEmoji, validateHabitName } from "./habit-validation";
 import {
@@ -129,6 +130,12 @@ export function EditHabitDialog({
 		}
 	};
 
+	const handleEmojiChange = (nextEmoji: string) => {
+		setEmoji(nextEmoji);
+		setFieldErrors((current) => ({ ...current, emoji: undefined }));
+		setSubmitError(null);
+	};
+
 	const blocksClose =
 		isPending || isHabitSynchronizing || submitInFlight.current;
 	return (
@@ -207,44 +214,13 @@ export function EditHabitDialog({
 								</p>
 							) : null}
 						</div>
-						<div>
-							<label
-								className="block text-sm font-medium text-stone-900"
-								htmlFor={`edit-habit-emoji-${habit.id}`}
-							>
-								絵文字（任意）
-							</label>
-							<input
-								aria-describedby={
-									fieldErrors.emoji
-										? `edit-habit-emoji-error-${habit.id}`
-										: undefined
-								}
-								aria-invalid={fieldErrors.emoji ? true : undefined}
-								className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-950 shadow-sm outline-none placeholder:text-stone-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-stone-100"
-								disabled={blocksClose}
-								id={`edit-habit-emoji-${habit.id}`}
-								onChange={(event) => {
-									setEmoji(event.target.value);
-									setFieldErrors((current) => ({
-										...current,
-										emoji: undefined,
-									}));
-									setSubmitError(null);
-								}}
-								placeholder="例: 📚"
-								value={emoji}
-							/>
-							{fieldErrors.emoji ? (
-								<p
-									className="mt-1 text-sm text-red-700"
-									id={`edit-habit-emoji-error-${habit.id}`}
-									role="alert"
-								>
-									{fieldErrors.emoji}
-								</p>
-							) : null}
-						</div>
+						<EmojiPicker
+							disabled={blocksClose}
+							error={fieldErrors.emoji}
+							id={`edit-habit-emoji-${habit.id}`}
+							onChange={handleEmojiChange}
+							value={emoji}
+						/>
 						{submitError ? (
 							<p className="text-sm text-red-700" role="alert">
 								{submitError}

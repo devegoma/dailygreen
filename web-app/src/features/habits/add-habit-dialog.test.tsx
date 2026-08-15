@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe("AddHabitDialog", () => {
-	it("タスク追加から開き、習慣名へinitial focusを当ててアクセシブルな関連付けを持つ", async () => {
+	it("タスク追加から開き、習慣名へinitial focusを当てて絵文字ピッカーを表示する", async () => {
 		const user = userEvent.setup();
 		renderWithClient(<AddHabitDialog />);
 
@@ -32,17 +32,17 @@ describe("AddHabitDialog", () => {
 			screen.getByRole("dialog", { name: "習慣を追加" }),
 		).toBeInTheDocument();
 		expect(screen.getByLabelText("習慣名")).toHaveFocus();
-		expect(screen.getByLabelText("絵文字（任意）")).toHaveAttribute(
-			"placeholder",
-			"例: 📚",
-		);
+		expect(
+			screen.getByRole("group", { name: "絵文字（任意）" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("radio", { name: "絵文字を設定しない" }),
+		).toBeChecked();
+		expect(screen.queryByPlaceholderText("例: 📚")).not.toBeInTheDocument();
 		expect(
 			screen.getByText("毎日続けたい習慣を登録します。"),
 		).toBeInTheDocument();
 		expect(screen.getByLabelText("習慣名")).not.toHaveAttribute("maxLength");
-		expect(screen.getByLabelText("絵文字（任意）")).not.toHaveAttribute(
-			"maxLength",
-		);
 	});
 
 	it("空文字・空白のみ・51グラフェムを検証し、失敗時はAPIを呼ばない", async () => {
@@ -76,7 +76,7 @@ describe("AddHabitDialog", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it("50グラフェム、通常・ZWJ・skin tone付きemojiを受け付ける", async () => {
+	it("通常・ZWJ・skin tone付きemojiをピッカーから選び、そのままAPIへ送れる", async () => {
 		const user = userEvent.setup();
 		vi.stubGlobal(
 			"fetch",
@@ -86,10 +86,14 @@ describe("AddHabitDialog", () => {
 		);
 		renderWithClient(<AddHabitDialog />);
 
-		for (const emoji of ["📚", "👨‍👩‍👧‍👦", "👍🏽"]) {
+		for (const optionName of [
+			"読書 📚",
+			"ヨガ・瞑想（女性） 🧘‍♀️",
+			"いい習慣 👍🏽",
+		]) {
 			await openDialog(user);
 			await user.type(screen.getByLabelText("習慣名"), "🌱".repeat(50));
-			await user.type(screen.getByLabelText("絵文字（任意）"), emoji);
+			await user.click(screen.getByRole("radio", { name: optionName }));
 			await user.click(screen.getByRole("button", { name: "追加" }));
 			await vi.waitFor(() =>
 				expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -97,31 +101,36 @@ describe("AddHabitDialog", () => {
 		}
 
 		expect(fetchMock).toHaveBeenCalledTimes(3);
+		expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+			expect.objectContaining({
+				body: expect.stringContaining("🧘‍♀️"),
+			}),
+		);
+		expect(fetchMock.mock.calls[2]?.[1]).toEqual(
+			expect.objectContaining({
+				body: expect.stringContaining("👍🏽"),
+			}),
+		);
 	});
 
-	it("複数絵文字と非絵文字を検証し、該当fieldの編集でerrorを消す", async () => {
+	it("radioの選択状態が分かり、keyboardでも候補を切り替えられる", async () => {
 		const user = userEvent.setup();
-		vi.stubGlobal("fetch", fetchMock);
 		renderWithClient(<AddHabitDialog />);
 		await openDialog(user);
-		await user.type(screen.getByLabelText("習慣名"), "読書");
-		const emoji = screen.getByLabelText("絵文字（任意）");
-		await user.type(emoji, "📚📖");
-		await user.click(screen.getByRole("button", { name: "追加" }));
-		expect(screen.getByRole("alert")).toHaveTextContent(
-			"絵文字は1つだけ入力してください",
-		);
-		expect(emoji).toHaveAttribute("aria-invalid", "true");
-		expect(emoji).toHaveAttribute("aria-describedby", "add-habit-emoji-error");
 
-		await user.clear(emoji);
-		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-		await user.type(emoji, "読");
-		await user.click(screen.getByRole("button", { name: "追加" }));
-		expect(screen.getByRole("alert")).toHaveTextContent(
-			"絵文字を1つだけ入力してください",
-		);
-		expect(fetchMock).not.toHaveBeenCalled();
+		const book = screen.getByRole("radio", { name: "読書 📚" });
+		book.focus();
+		await user.keyboard(" ");
+		expect(book).toBeChecked();
+		expect(
+			screen.getByRole("radio", { name: "絵文字を設定しない" }),
+		).not.toBeChecked();
+		expect(
+			screen.getByText("📚", { selector: "span[aria-live]" }),
+		).toBeInTheDocument();
+
+		await user.keyboard("{ArrowRight}");
+		expect(screen.getByRole("radio", { name: "本を読む 📖" })).toBeChecked();
 	});
 
 	it("trim済みpayloadをPOSTし、Dialog closeとfocus復帰後にhomeを再取得する", async () => {
@@ -151,7 +160,7 @@ describe("AddHabitDialog", () => {
 			hidden: true,
 		});
 		await user.type(screen.getByLabelText("習慣名"), "  読書  ");
-		await user.type(screen.getByLabelText("絵文字（任意）"), "📚");
+		await user.click(screen.getByRole("radio", { name: "読書 📚" }));
 		await user.click(screen.getByRole("button", { name: "追加" }));
 
 		await vi.waitFor(() =>
@@ -185,7 +194,10 @@ describe("AddHabitDialog", () => {
 			).toBeDisabled(),
 		);
 		expect(screen.getByLabelText("習慣名")).toBeDisabled();
-		expect(screen.getByLabelText("絵文字（任意）")).toBeDisabled();
+		expect(
+			screen.getByRole("radio", { name: "絵文字を設定しない" }),
+		).toBeDisabled();
+		expect(screen.getByRole("radio", { name: "読書 📚" })).toBeDisabled();
 		expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
 		expect(
 			fetchMock.mock.calls.filter(([path]) => path === "/api/habits"),
@@ -268,6 +280,7 @@ describe("AddHabitDialog", () => {
 
 		await openDialog(user);
 		await user.type(screen.getByLabelText("習慣名"), "読書");
+		await user.click(screen.getByRole("radio", { name: "読書 📚" }));
 		await user.click(screen.getByRole("button", { name: "キャンセル" }));
 		await vi.waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -276,6 +289,9 @@ describe("AddHabitDialog", () => {
 
 		await openDialog(user);
 		expect(screen.getByLabelText("習慣名")).toHaveValue("");
+		expect(
+			screen.getByRole("radio", { name: "絵文字を設定しない" }),
+		).toBeChecked();
 		await user.type(screen.getByLabelText("習慣名"), "読書");
 		await user.keyboard("{Escape}");
 		await vi.waitFor(() =>
