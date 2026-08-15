@@ -176,8 +176,6 @@ describe("Push dispatch PostgreSQL integration", () => {
 			.select({ endpoint: pushSubscription.endpoint })
 			.from(pushSubscription)
 			.where(eq(pushSubscription.userId, targetUser));
-		expect(remaining).toEqual([
-			{ endpoint: "https://push.example.test/ok" },
-		]);
+		expect(remaining).toEqual([{ endpoint: "https://push.example.test/ok" }]);
 	});
 });
