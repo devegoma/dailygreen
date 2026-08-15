@@ -18,28 +18,36 @@ export const Route = createFileRoute("/api/notifications")({
 					{ successHeaders: { "cache-control": "no-store" } },
 				),
 			PATCH: ({ request }) =>
-				handleAuthenticatedApi(request, async ({ request: authenticatedRequest, user }) =>
-					updateNotificationSettings({
-						user,
-						body: await parseJsonBody(authenticatedRequest),
-					}),
+				handleAuthenticatedApi(
+					request,
+					async ({ request: authenticatedRequest, user }) =>
+						updateNotificationSettings({
+							user,
+							body: await parseJsonBody(authenticatedRequest),
+						}),
 				),
 			PUT: ({ request }) =>
-				handleAuthenticatedApi(request, async ({ request: authenticatedRequest, user }) => {
-					await upsertPushSubscription({
-						user,
-						body: await parseJsonBody(authenticatedRequest),
-					});
-					return new Response(null, { status: 204 });
-				}),
+				handleAuthenticatedApi(
+					request,
+					async ({ request: authenticatedRequest, user }) => {
+						await upsertPushSubscription({
+							user,
+							body: await parseJsonBody(authenticatedRequest),
+						});
+						return new Response(null, { status: 204 });
+					},
+				),
 			DELETE: ({ request }) =>
-				handleAuthenticatedApi(request, async ({ request: authenticatedRequest, user }) => {
-					await deletePushSubscription({
-						user,
-						body: await parseJsonBody(authenticatedRequest),
-					});
-					return new Response(null, { status: 204 });
-				}),
+				handleAuthenticatedApi(
+					request,
+					async ({ request: authenticatedRequest, user }) => {
+						await deletePushSubscription({
+							user,
+							body: await parseJsonBody(authenticatedRequest),
+						});
+						return new Response(null, { status: 204 });
+					},
+				),
 		},
 	},
 });
