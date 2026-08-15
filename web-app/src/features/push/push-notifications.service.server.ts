@@ -19,6 +19,15 @@ function normalizeNotifyAt(value: string): string {
 	return value.slice(0, 5);
 }
 
+function getClientVapidPublicKey(): string | null {
+	return env.VAPID_PUBLIC_KEY &&
+		env.VAPID_PRIVATE_KEY &&
+		env.VAPID_SUBJECT &&
+		env.INTERNAL_JOB_TOKEN
+		? env.VAPID_PUBLIC_KEY
+		: null;
+}
+
 export async function getNotificationSettings(
 	user: AuthenticatedUser,
 ): Promise<NotificationSettingsResponse> {
@@ -34,7 +43,7 @@ export async function getNotificationSettings(
 	return {
 		enabled: setting?.enabled ?? false,
 		notifyAt: setting ? normalizeNotifyAt(setting.notifyAt) : DEFAULT_NOTIFY_AT,
-		vapidPublicKey: env.VAPID_PUBLIC_KEY ?? null,
+		vapidPublicKey: getClientVapidPublicKey(),
 	};
 }
 
@@ -80,7 +89,7 @@ export async function updateNotificationSettings(input: {
 	return {
 		enabled: setting.enabled,
 		notifyAt: normalizeNotifyAt(setting.notifyAt),
-		vapidPublicKey: env.VAPID_PUBLIC_KEY ?? null,
+		vapidPublicKey: getClientVapidPublicKey(),
 	};
 }
 
