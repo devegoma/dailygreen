@@ -113,6 +113,8 @@ jobs:
         run: docker build --target runner --tag dailygreen:ci .
       - name: Check notification scheduler syntax
         run: node --check ../notification-scheduler/index.mjs
+      - name: Check Push runtime smoke script syntax
+        run: bash -n ../scripts/verify-push-runtime.sh
       - name: Build notification scheduler Docker image
         run: docker build --tag dailygreen-notification-scheduler:ci ../notification-scheduler
       - name: Validate Docker Compose
