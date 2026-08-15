@@ -1,8 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { EmojiPicker } from "./emoji-picker";
+
+afterEach(() => {
+	cleanup();
+});
 
 describe("EmojiPicker", () => {
 	it("候補外の既存ZWJ絵文字も現在値として保持し、未設定へ戻せる", async () => {
@@ -13,11 +17,11 @@ describe("EmojiPicker", () => {
 			name: "現在設定中 👨‍👩‍👧‍👦",
 		});
 		expect(current).toBeChecked();
-		expect(screen.getByText("👨‍👩‍👧‍👦", { selector: "span[aria-live]" })).toBeInTheDocument();
+		expect(
+			screen.getByText("👨‍👩‍👧‍👦", { selector: "span[aria-live]" }),
+		).toBeInTheDocument();
 
-		await user.click(
-			screen.getByRole("radio", { name: "絵文字を設定しない" }),
-		);
+		await user.click(screen.getByRole("radio", { name: "絵文字を設定しない" }));
 		expect(
 			screen.getByRole("radio", { name: "絵文字を設定しない" }),
 		).toBeChecked();
@@ -33,13 +37,13 @@ describe("EmojiPicker", () => {
 
 		await user.click(screen.getByRole("radio", { name: "いい習慣 👍🏽" }));
 		expect(screen.getByRole("radio", { name: "いい習慣 👍🏽" })).toBeChecked();
-		expect(screen.getByText("👍🏽", { selector: "span[aria-live]" })).toBeInTheDocument();
+		expect(
+			screen.getByText("👍🏽", { selector: "span[aria-live]" }),
+		).toBeInTheDocument();
 	});
 });
 
 function PickerHarness({ initialValue = "" }: { initialValue?: string }) {
 	const [value, setValue] = useState(initialValue);
-	return (
-		<EmojiPicker id="test-emoji" onChange={setValue} value={value} />
-	);
+	return <EmojiPicker id="test-emoji" onChange={setValue} value={value} />;
 }
