@@ -40,6 +40,11 @@ export function toJstDateString(date = new Date()): string {
 	return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+export function toJstTimeString(date = new Date()): string {
+	const parts = partsToRecord(dateTimeFormatter.formatToParts(date));
+	return `${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
 export function toJstDateTimeString(date = new Date()): string {
 	const parts = partsToRecord(dateTimeFormatter.formatToParts(date));
 	return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}+09:00`;
