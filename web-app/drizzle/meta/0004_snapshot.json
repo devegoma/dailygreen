@@ -93,12 +93,8 @@
 					"name": "account_userId_user_id_fk",
 					"tableFrom": "account",
 					"tableTo": "user",
-					"columnsFrom": [
-						"userId"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -145,12 +141,8 @@
 					"name": "daily_record_habitId_habit_id_fk",
 					"tableFrom": "daily_record",
 					"tableTo": "habit",
-					"columnsFrom": [
-						"habitId"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["habitId"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -160,10 +152,7 @@
 				"habit_date_unique": {
 					"name": "habit_date_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"habitId",
-						"date"
-					]
+					"columns": ["habitId", "date"]
 				}
 			},
 			"policies": {},
@@ -269,12 +258,8 @@
 					"name": "habit_userId_user_id_fk",
 					"tableFrom": "habit",
 					"tableTo": "user",
-					"columnsFrom": [
-						"userId"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -336,12 +321,8 @@
 					"name": "notification_setting_userId_user_id_fk",
 					"tableFrom": "notification_setting",
 					"tableTo": "user",
-					"columnsFrom": [
-						"userId"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -430,12 +411,8 @@
 					"name": "push_subscription_userId_user_id_fk",
 					"tableFrom": "push_subscription",
 					"tableTo": "user",
-					"columnsFrom": [
-						"userId"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -445,9 +422,7 @@
 				"push_subscription_endpoint_unique": {
 					"name": "push_subscription_endpoint_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"endpoint"
-					]
+					"columns": ["endpoint"]
 				}
 			},
 			"policies": {},
@@ -513,12 +488,8 @@
 					"name": "session_userId_user_id_fk",
 					"tableFrom": "session",
 					"tableTo": "user",
-					"columnsFrom": [
-						"userId"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -528,9 +499,7 @@
 				"session_token_unique": {
 					"name": "session_token_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"token"
-					]
+					"columns": ["token"]
 				}
 			},
 			"policies": {},
@@ -598,9 +567,7 @@
 				"user_email_unique": {
 					"name": "user_email_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"email"
-					]
+					"columns": ["email"]
 				}
 			},
 			"policies": {},
