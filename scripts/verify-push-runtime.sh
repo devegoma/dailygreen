@@ -61,7 +61,7 @@ NODE
 log "webコンテナの依存関係準備を待ちます"
 deps_ready=0
 for _ in $(seq 1 60); do
-  if docker compose exec -T web sh -c 'test -x node_modules/.bin/drizzle-kit' >/dev/null 2>&1; then
+  if docker compose exec -T web sh -c 'test -f /tmp/dailygreen-deps-ready && test -x node_modules/.bin/drizzle-kit' >/dev/null 2>&1; then
     deps_ready=1
     break
   fi
