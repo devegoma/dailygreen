@@ -27,7 +27,10 @@ async function subscribeCurrentDevice(
 ): Promise<{ subscription: PushSubscription; created: boolean }> {
 	const permission = await Notification.requestPermission();
 	if (permission !== "granted") {
-		throw new DOMException("Notification permission was not granted", "NotAllowedError");
+		throw new DOMException(
+			"Notification permission was not granted",
+			"NotAllowedError",
+		);
 	}
 
 	const registration = await navigator.serviceWorker.ready;
@@ -174,7 +177,9 @@ export function NotificationSettingsCard({
 			if (isApiClientError(cause) && cause.status === 401) {
 				await onUnauthorized();
 			} else {
-				setError("リマインダーをオフにできませんでした。もう一度お試しください。");
+				setError(
+					"リマインダーをオフにできませんでした。もう一度お試しください。",
+				);
 			}
 		} finally {
 			setIsBusy(false);
@@ -208,7 +213,10 @@ export function NotificationSettingsCard({
 				aria-labelledby="notification-settings-heading"
 				className="mt-10 rounded-xl border border-stone-200 bg-white p-5 shadow-sm"
 			>
-				<h2 className="text-lg font-semibold text-stone-950" id="notification-settings-heading">
+				<h2
+					className="text-lg font-semibold text-stone-950"
+					id="notification-settings-heading"
+				>
 					リマインダー
 				</h2>
 				<p aria-live="polite" className="mt-2 text-sm text-stone-600">
@@ -224,11 +232,15 @@ export function NotificationSettingsCard({
 				aria-labelledby="notification-settings-heading"
 				className="mt-10 rounded-xl border border-stone-200 bg-white p-5 shadow-sm"
 			>
-				<h2 className="text-lg font-semibold text-stone-950" id="notification-settings-heading">
+				<h2
+					className="text-lg font-semibold text-stone-950"
+					id="notification-settings-heading"
+				>
 					リマインダー
 				</h2>
 				<p className="mt-2 text-sm leading-6 text-stone-600">
-					この環境ではWeb Push通知を利用できません。iPhone / iPadではDaily Greenをホーム画面に追加したWebアプリからお試しください。
+					この環境ではWeb Push通知を利用できません。iPhone / iPadではDaily
+					Greenをホーム画面に追加したWebアプリからお試しください。
 				</p>
 			</section>
 		);
@@ -244,7 +256,10 @@ export function NotificationSettingsCard({
 		>
 			<div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
 				<div className="max-w-2xl">
-					<h2 className="text-lg font-semibold text-stone-950" id="notification-settings-heading">
+					<h2
+						className="text-lg font-semibold text-stone-950"
+						id="notification-settings-heading"
+					>
 						リマインダー
 					</h2>
 					<p className="mt-1 text-sm leading-6 text-stone-600">
@@ -261,7 +276,10 @@ export function NotificationSettingsCard({
 				</div>
 
 				<div className="flex w-full max-w-sm flex-col gap-3">
-					<label className="text-sm font-medium text-stone-800" htmlFor="notification-time">
+					<label
+						className="text-sm font-medium text-stone-800"
+						htmlFor="notification-time"
+					>
 						通知時刻
 					</label>
 					<div className="flex gap-2">
@@ -276,7 +294,9 @@ export function NotificationSettingsCard({
 						/>
 						<button
 							className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-stone-800 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
-							disabled={isBusy || settings == null || notifyAt === settings.notifyAt}
+							disabled={
+								isBusy || settings == null || notifyAt === settings.notifyAt
+							}
 							onClick={() => void handleSaveTime()}
 							type="button"
 						>
@@ -328,12 +348,20 @@ export function NotificationSettingsCard({
 				</p>
 			) : null}
 			{message ? (
-				<p aria-live="polite" className="mt-4 text-sm text-emerald-800" role="status">
+				<p
+					aria-live="polite"
+					className="mt-4 text-sm text-emerald-800"
+					role="status"
+				>
 					{message}
 				</p>
 			) : null}
 			{error ? (
-				<p aria-live="assertive" className="mt-4 text-sm text-red-700" role="alert">
+				<p
+					aria-live="assertive"
+					className="mt-4 text-sm text-red-700"
+					role="alert"
+				>
 					{error}
 				</p>
 			) : null}

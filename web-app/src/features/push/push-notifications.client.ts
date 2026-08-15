@@ -46,7 +46,10 @@ export function serializePushSubscription(
 	};
 }
 
-async function requestNoContent(path: string, init: RequestInit): Promise<void> {
+async function requestNoContent(
+	path: string,
+	init: RequestInit,
+): Promise<void> {
 	let response: Response;
 	try {
 		response = await fetch(path, {
