@@ -119,4 +119,5 @@ jobs:
         working-directory: .
         run: |
           cp web-app/.env.example web-app/.env
+          cp notification-scheduler/.env.example notification-scheduler/.env
           docker compose config --quiet
