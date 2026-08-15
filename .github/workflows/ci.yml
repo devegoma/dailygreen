@@ -113,6 +113,8 @@ jobs:
         run: docker build --target runner --tag dailygreen:ci .
       - name: Check notification scheduler syntax
         run: node --check ../notification-scheduler/index.mjs
+      - name: Check Push runtime smoke script syntax
+        run: bash -n ../scripts/verify-push-runtime.sh
       - name: Build notification scheduler Docker image
         run: docker build --tag dailygreen-notification-scheduler:ci ../notification-scheduler
       - name: Validate Docker Compose
@@ -121,3 +123,26 @@ jobs:
           cp web-app/.env.example web-app/.env
           cp notification-scheduler/.env.example notification-scheduler/.env
           docker compose config --quiet
+      - name: Run Push runtime smoke check
+        working-directory: .
+        run: |
+          node <<'NODE' > web-app/.env
+          const webPush = require('./web-app/node_modules/web-push');
+          const keys = webPush.generateVAPIDKeys();
+          console.log('NODE_ENV=development');
+          console.log('DATABASE_URL=postgresql://user:password@localhost:5432/dailygreen');
+          console.log('BETTER_AUTH_SECRET=ci-only-secret-ci-only-secret-123456');
+          console.log('BETTER_AUTH_URL=http://localhost:5173');
+          console.log('GOOGLE_CLIENT_ID=test-google-client-id');
+          console.log('GOOGLE_CLIENT_SECRET=test-google-client-secret');
+          console.log('VITE_GOOGLE_CLIENT_ID=test-google-client-id');
+          console.log(`VAPID_PUBLIC_KEY=${keys.publicKey}`);
+          console.log(`VAPID_PRIVATE_KEY=${keys.privateKey}`);
+          console.log('VAPID_SUBJECT=mailto:ci@example.com');
+          console.log('INTERNAL_JOB_TOKEN=ci-internal-job-token-12345678901234567890');
+          console.log('APP_VERSION=ci');
+          NODE
+          cat > notification-scheduler/.env <<'EOF'
+          INTERNAL_JOB_TOKEN=ci-internal-job-token-12345678901234567890
+          EOF
+          env -u DATABASE_URL bash scripts/verify-push-runtime.sh
