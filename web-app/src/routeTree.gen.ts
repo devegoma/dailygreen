@@ -17,6 +17,7 @@ import { Route as HealthLiveRouteImport } from './routes/health/live'
 import { Route as HealthReadyRouteImport } from './routes/health/ready'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiHabitsHabitIdRouteImport } from './routes/api/habits/$habitId'
+import { Route as InternalJobsPushDispatchRouteImport } from './routes/internal/jobs/push-dispatch'
 import { Route as ApiHabitsHabitIdArchiveRouteImport } from './routes/api/habits/$habitId/archive'
 import { Route as ApiHabitsHabitIdCompleteRouteImport } from './routes/api/habits/$habitId/complete'
 
@@ -60,6 +61,12 @@ const ApiHabitsHabitIdRoute = ApiHabitsHabitIdRouteImport.update({
   path: '/$habitId',
   getParentRoute: () => ApiHabitsRoute,
 } as any)
+const InternalJobsPushDispatchRoute =
+  InternalJobsPushDispatchRouteImport.update({
+    id: '/internal/jobs/push-dispatch',
+    path: '/internal/jobs/push-dispatch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiHabitsHabitIdArchiveRoute = ApiHabitsHabitIdArchiveRouteImport.update({
   id: '/archive',
   path: '/archive',
@@ -81,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/habits/$habitId': typeof ApiHabitsHabitIdRouteWithChildren
+  '/internal/jobs/push-dispatch': typeof InternalJobsPushDispatchRoute
   '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
   '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
 }
@@ -93,6 +101,7 @@ export interface FileRoutesByTo {
   '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/habits/$habitId': typeof ApiHabitsHabitIdRouteWithChildren
+  '/internal/jobs/push-dispatch': typeof InternalJobsPushDispatchRoute
   '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
   '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
 }
@@ -106,6 +115,7 @@ export interface FileRoutesById {
   '/health/ready': typeof HealthReadyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/habits/$habitId': typeof ApiHabitsHabitIdRouteWithChildren
+  '/internal/jobs/push-dispatch': typeof InternalJobsPushDispatchRoute
   '/api/habits/$habitId/archive': typeof ApiHabitsHabitIdArchiveRoute
   '/api/habits/$habitId/complete': typeof ApiHabitsHabitIdCompleteRoute
 }
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/health/ready'
     | '/api/auth/$'
     | '/api/habits/$habitId'
+    | '/internal/jobs/push-dispatch'
     | '/api/habits/$habitId/archive'
     | '/api/habits/$habitId/complete'
   fileRoutesByTo: FileRoutesByTo
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/health/ready'
     | '/api/auth/$'
     | '/api/habits/$habitId'
+    | '/internal/jobs/push-dispatch'
     | '/api/habits/$habitId/archive'
     | '/api/habits/$habitId/complete'
   id:
@@ -144,6 +156,7 @@ export interface FileRouteTypes {
     | '/health/ready'
     | '/api/auth/$'
     | '/api/habits/$habitId'
+    | '/internal/jobs/push-dispatch'
     | '/api/habits/$habitId/archive'
     | '/api/habits/$habitId/complete'
   fileRoutesById: FileRoutesById
@@ -156,6 +169,7 @@ export interface RootRouteChildren {
   HealthLiveRoute: typeof HealthLiveRoute
   HealthReadyRoute: typeof HealthReadyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  InternalJobsPushDispatchRoute: typeof InternalJobsPushDispatchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -216,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHabitsHabitIdRouteImport
       parentRoute: typeof ApiHabitsRoute
     }
+    '/internal/jobs/push-dispatch': {
+      id: '/internal/jobs/push-dispatch'
+      path: '/internal/jobs/push-dispatch'
+      fullPath: '/internal/jobs/push-dispatch'
+      preLoaderRoute: typeof InternalJobsPushDispatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/habits/$habitId/archive': {
       id: '/api/habits/$habitId/archive'
       path: '/archive'
@@ -266,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   HealthLiveRoute: HealthLiveRoute,
   HealthReadyRoute: HealthReadyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  InternalJobsPushDispatchRoute: InternalJobsPushDispatchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

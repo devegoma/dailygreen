@@ -30,6 +30,32 @@ describe("parseServerEnv", () => {
 		});
 	});
 
+	it("Web Pushのruntime設定を検証して保持する", () => {
+		expect(
+			parseServerEnv({
+				...validEnv,
+				VAPID_PUBLIC_KEY: "public-key",
+				VAPID_PRIVATE_KEY: "private-key",
+				VAPID_SUBJECT: "mailto:admin@example.com",
+				INTERNAL_JOB_TOKEN: "t".repeat(32),
+			}),
+		).toMatchObject({
+			VAPID_PUBLIC_KEY: "public-key",
+			VAPID_PRIVATE_KEY: "private-key",
+			VAPID_SUBJECT: "mailto:admin@example.com",
+			INTERNAL_JOB_TOKEN: "t".repeat(32),
+		});
+	});
+
+	it("不正なVAPID subjectと短すぎる内部job tokenを拒否する", () => {
+		expect(() =>
+			parseServerEnv({ ...validEnv, VAPID_SUBJECT: "ftp://example.com" }),
+		).toThrow("VAPID_SUBJECT");
+		expect(() =>
+			parseServerEnv({ ...validEnv, INTERNAL_JOB_TOKEN: "short" }),
+		).toThrow("INTERNAL_JOB_TOKEN");
+	});
+
 	it("PostgreSQL以外のDATABASE_URLを拒否する", () => {
 		expect(() =>
 			parseServerEnv({
@@ -48,6 +74,9 @@ describe("parseServerEnv", () => {
 	it("VITE_付きの秘密値を拒否する", () => {
 		expect(() =>
 			parseServerEnv({ ...validEnv, VITE_DATABASE_URL: validEnv.DATABASE_URL }),
+		).toThrow("VITE_");
+		expect(() =>
+			parseServerEnv({ ...validEnv, VITE_VAPID_PRIVATE_KEY: "private" }),
 		).toThrow("VITE_");
 	});
 });
