@@ -1,3 +1,5 @@
+import type { KeyboardEvent } from "react";
+
 const HABIT_EMOJI_OPTIONS = [
 	{ emoji: "🌱", label: "新しい習慣" },
 	{ emoji: "📚", label: "読書" },
@@ -48,14 +50,51 @@ export function EmojiPicker({
 	disabled = false,
 	error,
 }: EmojiPickerProps) {
-	const hasPresetValue = HABIT_EMOJI_OPTIONS.some(
-		(option) => option.emoji === value,
-	);
-	const options =
-		value !== "" && !hasPresetValue
-			? [{ emoji: value, label: "現在設定中" }, ...HABIT_EMOJI_OPTIONS]
-			: HABIT_EMOJI_OPTIONS;
 	const errorId = `${id}-error`;
+	const inputId = `${id}-custom`;
+
+	const focusOption = (index: number) => {
+		document.getElementById(`${id}-option-${index}`)?.focus();
+	};
+
+	const handleOptionKeyDown = (
+		event: KeyboardEvent<HTMLInputElement>,
+		index: number,
+	) => {
+		const columns =
+			typeof window.matchMedia === "function" &&
+			window.matchMedia("(min-width: 640px)").matches
+				? 8
+				: 6;
+		const column = index % columns;
+		let nextIndex = index;
+
+		switch (event.key) {
+			case "ArrowLeft":
+				if (column > 0) nextIndex = index - 1;
+				break;
+			case "ArrowRight":
+				if (column < columns - 1 && index + 1 < HABIT_EMOJI_OPTIONS.length) {
+					nextIndex = index + 1;
+				}
+				break;
+			case "ArrowUp":
+				if (index - columns >= 0) nextIndex = index - columns;
+				break;
+			case "ArrowDown":
+				if (index + columns < HABIT_EMOJI_OPTIONS.length) {
+					nextIndex = index + columns;
+				}
+				break;
+			default:
+				return;
+		}
+
+		event.preventDefault();
+		if (nextIndex === index) return;
+		onChange(HABIT_EMOJI_OPTIONS[nextIndex].emoji);
+		focusOption(nextIndex);
+	};
 
 	return (
 		<fieldset
@@ -94,7 +133,7 @@ export function EmojiPicker({
 			</label>
 
 			<div className="mt-2 grid grid-cols-6 gap-2 sm:grid-cols-8">
-				{options.map((option) => {
+				{HABIT_EMOJI_OPTIONS.map((option, index) => {
 					const selected = value === option.emoji;
 					return (
 						<label
@@ -110,8 +149,10 @@ export function EmojiPicker({
 								aria-label={`${option.label} ${option.emoji}`}
 								checked={selected}
 								className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+								id={`${id}-option-${index}`}
 								name={id}
 								onChange={() => onChange(option.emoji)}
+								onKeyDown={(event) => handleOptionKeyDown(event, index)}
 								type="radio"
 								value={option.emoji}
 							/>
@@ -121,8 +162,24 @@ export function EmojiPicker({
 				})}
 			</div>
 			<p className="mt-2 text-xs text-stone-500">
-				矢印キーでも候補を移動できます。
+				矢印キーは画面上の上下左右に合わせて候補を移動します。
 			</p>
+
+			<div className="mt-3">
+				<label className="block text-sm font-medium text-stone-700" htmlFor={inputId}>
+					絵文字を直接入力
+				</label>
+				<input
+					autoComplete="off"
+					className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-950 shadow-sm outline-none placeholder:text-stone-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-500"
+					id={inputId}
+					onChange={(event) => onChange(event.target.value)}
+					placeholder="例: 📚"
+					type="text"
+					value={value}
+				/>
+			</div>
+
 			{error ? (
 				<p className="mt-1 text-sm text-red-700" id={errorId} role="alert">
 					{error}
