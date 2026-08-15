@@ -115,3 +115,8 @@ jobs:
         run: node --check ../notification-scheduler/index.mjs
       - name: Build notification scheduler Docker image
         run: docker build --tag dailygreen-notification-scheduler:ci ../notification-scheduler
+      - name: Validate Docker Compose
+        working-directory: .
+        run: |
+          cp web-app/.env.example web-app/.env
+          docker compose config --quiet
