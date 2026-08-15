@@ -1,18 +1,9 @@
-import {
-	and,
-	eq,
-	inArray,
-	isNull,
-	lte,
-	ne,
-	or,
-	sql,
-} from "drizzle-orm";
-import webPush from "web-push";
+import { and, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type {
-	PushSubscription as WebPushSubscription,
 	RequestOptions,
+	PushSubscription as WebPushSubscription,
 } from "web-push";
+import webPush from "web-push";
 import { db } from "~/db/index.server";
 import {
 	dailyRecord,
@@ -87,11 +78,9 @@ async function claimDueUsers(now: Date): Promise<{
 	const currentTime = toJstTimeString(now);
 
 	return db.transaction(async (tx) => {
-		const [lockResult] = await tx
-			.select({
-				acquired: sql<boolean>`pg_try_advisory_xact_lock(${PUSH_DISPATCH_LOCK_ID})`,
-			})
-			.execute();
+		const [lockResult] = await tx.select({
+			acquired: sql<boolean>`pg_try_advisory_xact_lock(${PUSH_DISPATCH_LOCK_ID})`,
+		});
 		if (!lockResult?.acquired) {
 			return {
 				summary: { ...emptySummary(), locked: false },
@@ -211,10 +200,9 @@ function writeDispatchLog(
 	else console.info(message);
 }
 
-export async function dispatchPushNotifications(options: {
-	now?: Date;
-	sendPush?: PushSender;
-} = {}): Promise<PushDispatchSummary> {
+export async function dispatchPushNotifications(
+	options: { now?: Date; sendPush?: PushSender } = {},
+): Promise<PushDispatchSummary> {
 	const startedAt = performance.now();
 	const now = options.now ?? new Date();
 	const config = getPushRuntimeConfig();
