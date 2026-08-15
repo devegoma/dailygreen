@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Daily Green",
+  "short_name": "Daily Green",
+  "description": "毎日の習慣を記録し、積み上げをActivity Logで振り返る習慣管理アプリ",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fafaf9",
+  "theme_color": "#052e16",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
