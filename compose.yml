@@ -23,7 +23,9 @@ services:
       context: ./web-app
       target: dev
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
+    env_file:
+      - ./web-app/.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dailygreen}}
     volumes:
@@ -32,6 +34,19 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - dailygreen-network
+
+  notification-scheduler:
+    build:
+      context: ./notification-scheduler
+    env_file:
+      - ./notification-scheduler/.env
+    environment:
+      INTERNAL_JOB_URL: http://web:5173/internal/jobs/push-dispatch
+    depends_on:
+      - web
+    restart: unless-stopped
     networks:
       - dailygreen-network
 
@@ -51,7 +66,6 @@ services:
 networks:
   dailygreen-network:
     driver: bridge
-    
 
 volumes:
   postgres_data:

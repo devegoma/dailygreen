@@ -5,6 +5,7 @@ import {
 	integer,
 	pgTable,
 	text,
+	time,
 	timestamp,
 	unique,
 	uuid,
@@ -150,4 +151,43 @@ export const dailyRecord = pgTable(
 	},
 	// 同一日に同じ習慣の記録が重複しないよう、複合ユニーク制約を設定
 	(table) => [unique("habit_date_unique").on(table.habitId, table.date)],
+);
+
+export const notificationSetting = pgTable("notification_setting", {
+	userId: text("userId")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	enabled: boolean("enabled").notNull().default(false),
+	notifyAt: time("notifyAt").notNull().default("20:00:00"),
+	lastNotifiedDate: date("lastNotifiedDate", { mode: "string" }),
+	createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});
+
+export const pushSubscription = pgTable(
+	"push_subscription",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		userId: text("userId")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		endpoint: text("endpoint").notNull().unique(),
+		p256dh: text("p256dh").notNull(),
+		auth: text("auth").notNull(),
+		expirationTime: timestamp("expirationTime", {
+			mode: "date",
+			withTimezone: true,
+		}),
+		createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => [index("push_subscription_user_id_idx").on(table.userId)],
 );

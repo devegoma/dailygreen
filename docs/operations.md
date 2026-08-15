@@ -14,6 +14,44 @@
 - 必須環境変数はコンテナ実行時に秘密管理基盤から注入し、サーバーモジュールの初期化時にValibotで検証する
 - CIでは環境変数をDocker buildへ引き渡さずに`runner` targetをbuildし、秘密値なしで成果物を生成できることを確認する
 
+## Web Push通知
+
+### 構成
+
+- v1では既存のオンプレ物理サーバー1台を継続利用し、別ホストやパブリッククラウドのscheduler/queueは追加しない
+- `notification-scheduler` は同一Docker bridge network上で `web` の内部job endpointを60秒間隔で呼ぶだけのsidecarとする
+- schedulerにはDB資格情報、VAPID秘密鍵、Docker socket、公開portを与えない
+- Web Pushの送信処理とDB更新は`web`側に置く
+- `web`から各Push ServiceへのHTTPS outbound通信を許可する
+- reverse proxyは `/internal/jobs/push-dispatch` を外部へproxyせず404を返す。schedulerはDocker networkから`web`へ直接アクセスする
+- ローカル/検証用ComposeではWeb開発ポートを`127.0.0.1:5173`だけへbindし、外部からreverse proxyを迂回しない
+
+### 秘密値
+
+本番では次をruntimeで注入する。
+
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `VAPID_SUBJECT`
+- `INTERNAL_JOB_TOKEN`
+
+VAPID key pairは環境ごとに1組を生成し、Subscriptionを維持する間は同じkey pairを継続利用する。`VAPID_PRIVATE_KEY`と`INTERNAL_JOB_TOKEN`はログ、クライアントbundle、`VITE_`環境変数へ出さない。`INTERNAL_JOB_TOKEN`は32文字以上の十分にランダムな値とする。
+
+### 障害時
+
+- scheduler停止時もWebアプリ本体は継続利用できる
+- Push Serviceの障害や個別Subscriptionの失敗をWebリクエスト処理へ波及させない
+- 404/410を返すSubscriptionは無効とみなし削除する
+- dispatchは送信前に`lastNotifiedDate`をclaimするため、v1は重複送信を避けるat-most-once寄りとする。一時的な外部送信失敗を同日に自動再送しない
+- 複数schedulerが誤って起動してもPostgreSQL advisory transaction lockと条件付きclaimで同一時刻のdispatchを直列化する
+
+### 監視
+
+- schedulerの`push_scheduler_dispatch_succeeded`が継続して出ていることを監視する
+- 数分以上成功ログがない場合をZabbix等のアラート対象にする
+- `push_dispatch`の完了ログからcandidate、claimed、success、failure、invalid subscription削除数を収集する
+- failed subscriptionが継続増加する場合はegress、VAPID設定、Push Service応答を調査する
+
 ## PostgreSQLバックアップと復旧
 
 - 本番DBは日次で `pg_dump --format=custom` を取得し、DBとは別の暗号化ストレージへ保存する

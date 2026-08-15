@@ -1,6 +1,17 @@
 import * as v from "valibot";
 
 const nonEmpty = v.pipe(v.string(), v.trim(), v.minLength(1));
+const vapidSubject = v.pipe(
+	nonEmpty,
+	v.check((value) => {
+		try {
+			const url = new URL(value);
+			return url.protocol === "https:" || url.protocol === "mailto:";
+		} catch {
+			return false;
+		}
+	}, "VAPID_SUBJECT は https: URL または mailto: URI で指定してください。"),
+);
 
 const serverEnvSchema = v.pipe(
 	v.object({
@@ -21,6 +32,10 @@ const serverEnvSchema = v.pipe(
 		BETTER_AUTH_URL: v.pipe(v.string(), v.url()),
 		GOOGLE_CLIENT_ID: nonEmpty,
 		GOOGLE_CLIENT_SECRET: nonEmpty,
+		VAPID_PUBLIC_KEY: v.optional(nonEmpty),
+		VAPID_PRIVATE_KEY: v.optional(nonEmpty),
+		VAPID_SUBJECT: v.optional(vapidSubject),
+		INTERNAL_JOB_TOKEN: v.optional(v.pipe(v.string(), v.minLength(32))),
 		APP_VERSION: v.optional(nonEmpty, "development"),
 	}),
 	v.forward(
@@ -41,7 +56,7 @@ export function parseServerEnv(source: NodeJS.ProcessEnv): ServerEnv {
 	const viteSecretNames = Object.keys(source).filter(
 		(name) =>
 			name.startsWith("VITE_") &&
-			/SECRET|TOKEN|PASSWORD|DATABASE_URL/.test(name),
+			/SECRET|TOKEN|PASSWORD|DATABASE_URL|PRIVATE_KEY/.test(name),
 	);
 	if (viteSecretNames.length > 0) {
 		throw new Error(

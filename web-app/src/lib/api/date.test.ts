@@ -5,12 +5,19 @@ import {
 	getJstDateStart,
 	toJstDateString,
 	toJstDateTimeString,
+	toJstTimeString,
 } from "./date";
 
 describe("JST date utilities", () => {
 	it("UTC の日付境界をまたいでも JST の日付文字列を返す", () => {
 		expect(toJstDateString(new Date("2024-11-19T15:00:00.000Z"))).toBe(
 			"2024-11-20",
+		);
+	});
+
+	it("JSTの時刻だけをHH:MM:SSで返す", () => {
+		expect(toJstTimeString(new Date("2024-11-19T15:23:45.000Z"))).toBe(
+			"00:23:45",
 		);
 	});
 
