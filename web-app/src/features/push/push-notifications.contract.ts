@@ -10,6 +10,8 @@ const subscriptionFields = new Set(["endpoint", "expirationTime", "keys"]);
 const subscriptionKeyFields = new Set(["p256dh", "auth"]);
 const deleteSubscriptionFields = new Set(["endpoint"]);
 const notifyAtPattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const base64UrlPattern = /^[A-Za-z0-9_-]+={0,2}$/;
+const MAX_DATE_EPOCH_MS = 8_640_000_000_000_000;
 
 function invalidRequest(cause?: unknown): never {
 	throw new ApiError("INVALID_REQUEST", undefined, { cause });
@@ -35,7 +37,12 @@ function parseEndpoint(value: unknown): string {
 }
 
 function parseKey(value: unknown): string {
-	if (typeof value !== "string" || value.length === 0 || value.length > 512) {
+	if (
+		typeof value !== "string" ||
+		value.length === 0 ||
+		value.length > 512 ||
+		!base64UrlPattern.test(value)
+	) {
 		return invalidRequest();
 	}
 	return value;
@@ -97,7 +104,8 @@ export function parsePushSubscriptionRequest(
 		expirationTime !== null &&
 		(typeof expirationTime !== "number" ||
 			!Number.isSafeInteger(expirationTime) ||
-			expirationTime <= 0)
+			expirationTime <= 0 ||
+			expirationTime > MAX_DATE_EPOCH_MS)
 	) {
 		return invalidRequest();
 	}
