@@ -21,6 +21,7 @@ docker compose up -d
 - [Push通知 v1](docs/push-notifications.md)
 - [ソーシャルシェア v1](docs/social-share.md)
 - [運用設計](docs/operations.md)
+- [自宅サーバー構築手順](docs/infrastructure/first-time-server-setup.md)
 - [コーディング規約](docs/coding-conventions.md)
 
 現行の仕様は上記ドキュメントと `web-app/src` の実装を基準とします。Drizzle の過去 migration は履歴として保持し、現在のスキーマ定義は `web-app/src/db/schema.ts` を参照します。
