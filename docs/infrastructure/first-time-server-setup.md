@@ -8,11 +8,13 @@ Ubuntu を自宅サーバーとしてセットアップし、Windows から SSH 
 - クライアント: Windows 10/11（標準の OpenSSH Client を使用）
 - サーバーの LAN IP: `<SERVER_IP>`（例: `192.168.1.50`）
 - SSH 接続ユーザー: `<UBUNTU_USER>`
-- 運用 SSH ポート: `10022/TCP`
+- 管理者メールアドレス: `<ADMIN_EMAIL>`（例: `admin@example.com`）
+- 公開ドメイン名: `<DOMAIN>`（例: `dailygreen.example.com`）
+- `<DOMAIN>` の DNS zone を管理する Cloudflare アカウント
 - リポジトリ URL: `<REPOSITORY_URL>`
 - Git の clone 先: `/home/<UBUNTU_USER>/dailygreen`
 
-`<...>` は環境に合わせて置き換えてください。ルーターをインターネットから直接公開する場合は、後述の「公開時の注意」を必ず確認してください。
+`<...>` は環境に合わせて置き換えてください。公開 Web 通信は Cloudflare Tunnel、管理接続は Tailscale SSH を使用し、ルーターの inbound port forwarding は使用しません。後述の「公開時の注意」も必ず確認してください。
 
 ## 1. Ubuntu の初期更新と SSH サーバーのインストール
 
@@ -85,75 +87,40 @@ Windows 側で公開鍵認証を指定して接続できることを確認しま
 ssh -i "$env:USERPROFILE\.ssh\id_ed25519_dailygreen" <UBUNTU_USER>@<SERVER_IP>
 ```
 
-## 5. SSH を 10022 番へ変更
+## 5. Tailscale SSH へ切り替え
 
-### Ubuntu 側の設定
-
-設定ファイルをバックアップしてから、`sshd_config` の末尾に設定を追加します。
+公開 SSH を閉じる前に、Ubuntu と作業用 Windows PC を同じ tailnet へ参加させます。Ubuntu 側へ Tailscale をインストールし、表示される URL から認証します。
 
 ```bash
-sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%Y%m%d%H%M%S)
-sudo nano /etc/ssh/sshd_config
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+sudo tailscale set --ssh
+tailscale status
+tailscale ip -4
 ```
 
-以下を設定します。既存の同名設定がコメントアウトされている場合は、有効な設定として追加または変更してください。
+Tailscale admin console の access controls で、作業者からこのサーバーへの network access と SSH access の両方を必要最小限で許可します。Windows 側にも Tailscale をインストールして同じ tailnet へ参加させ、MagicDNS 名または Tailscale IP で接続を確認します。
 
-```text
-Port 10022
-PermitRootLogin no
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-PubkeyAuthentication yes
+```powershell
+ssh <UBUNTU_USER>@<TAILSCALE_HOSTNAME>
 ```
 
-設定を検証し、問題がなければ SSH を再起動します。
-
-```bash
-sudo sshd -t
-sudo systemctl restart ssh
-sudo ss -tlnp | grep 10022
-```
-
-### Windows の SSH config を作成して接続確認
-
-既存の接続を閉じる前に、Windows の `C:\Users\<WindowsUser>\.ssh\config` に次を追加します。
+Tailscale SSH で新規接続できたことを確認してから、Windows の SSH config の `dailygreen-server` を更新します。
 
 ```text
 Host dailygreen-server
-    HostName <SERVER_IP>
+    HostName <TAILSCALE_HOSTNAME>
     User <UBUNTU_USER>
-    Port 10022
-    IdentityFile ~/.ssh/id_ed25519_dailygreen
-    IdentitiesOnly yes
 ```
 
-まず Ubuntu 側で10022番を許可します。この時点では、切り戻し用に22番の許可を残します。
-
-```bash
-sudo ufw allow 10022/tcp
-sudo ufw status numbered
-```
-
-別の PowerShell ウィンドウから、config 経由で10022番へ接続できることを確認します。
-
-```powershell
-ssh dailygreen-server
-```
-
-接続できたことを確認してから、既存の SSH 接続を閉じずに Ubuntu 側で22番の許可を削除します。
+別の PowerShell ウィンドウで `ssh dailygreen-server` が成功した後、Ubuntu 側でインターネットまたは LAN 向けの SSH 許可を削除します。
 
 ```bash
 sudo ufw delete allow 22/tcp
-sudo ufw status numbered
+sudo ufw status verbose
 ```
 
-以後の接続は次の形式にします。
-
-```powershell
-ssh dailygreen-server
-```
-
-以後のSSH操作は、ポート番号や秘密鍵をコマンドラインに直接指定せず、必ず `dailygreen-server` を使用します。
+以後の管理接続は Tailscale SSH を使用します。tailnet の access policy 変更前や Tailscale SSH の無効化前には、サーバーのローカルコンソールなど別の復旧経路を確保してください。
 
 ## 6. Docker のインストールと初回起動確認
 
@@ -207,6 +174,37 @@ git log -1 --oneline
 
 Windows 側では、リポジトリ内の各 `.env.example` と同じディレクトリに `.env` が作成済みで、必要な値が設定済みであることを前提とします。`<WINDOWS_REPOSITORY_DIR>` は、Windows 上でリポジトリを clone しているディレクトリに置き換えてください。
 
+### VAPID key pair の生成
+
+Windows 側で `web-app` ディレクトリへ移動し、Web Push に使用する VAPID key pair を1組生成します。
+
+```powershell
+cd "<WINDOWS_REPOSITORY_DIR>\web-app"
+pnpm exec web-push generate-vapid-keys
+```
+
+出力された公開鍵と秘密鍵を `web-app/.env` に追加し、`VAPID_SUBJECT` には前提で定義した管理者メールアドレスを `mailto:` 形式で設定します。Subscription を維持する間は同じ key pair を継続利用し、`VAPID_PRIVATE_KEY` を Git へ登録したりログへ出力したりしないでください。
+
+```dotenv
+VAPID_PUBLIC_KEY=<生成された公開鍵>
+VAPID_PRIVATE_KEY=<生成された秘密鍵>
+VAPID_SUBJECT=mailto:<ADMIN_EMAIL>
+```
+
+### `INTERNAL_JOB_TOKEN` の生成
+
+Windows 側で十分にランダムな token を生成します。
+
+```powershell
+openssl rand -base64 32
+```
+
+生成された値を `web-app/.env` と `notification-scheduler/.env` の両方へ追加します。両ファイルには必ず同じ値を設定し、Git へ登録したりログへ出力したりしないでください。
+
+```dotenv
+INTERNAL_JOB_TOKEN=<生成された値>
+```
+
 Windows 側の `.env` には、少なくとも次の値が設定されていることを確認します。
 
 - `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`、OAuth 関連、`VAPID_*`、`INTERNAL_JOB_TOKEN`、`APP_VERSION`
@@ -246,13 +244,120 @@ git status --short --ignored
 stat -c '%a %U:%G %n' web-app/.env notification-scheduler/.env
 ```
 
-## 9. Docker Compose を起動
+## 9. Cloudflare Tunnel とコンテナネットワークを設定
+
+### Tunnel の作成
+
+Cloudflare dashboard の **Networking > Tunnels** で remotely-managed tunnel を作成し、connector は Docker を選択します。表示された install command の `--token` に続く値を `<TUNNEL_TOKEN>` として控えます。この token は tunnel connector の資格情報なので、リポジトリ、アプリの `.env`、shell history、ログへ保存しないでください。
+
+Ubuntu 側で、`cloudflared` だけが読む環境変数ファイルをリポジトリ外へ作成します。
+
+```bash
+sudo install -d -m 700 /etc/dailygreen
+sudo nano /etc/dailygreen/cloudflared.env
+```
+
+次の内容を保存します。
+
+```dotenv
+TUNNEL_TOKEN=<TUNNEL_TOKEN>
+```
+
+```bash
+sudo chown root:docker /etc/dailygreen/cloudflared.env
+sudo chmod 640 /etc/dailygreen/cloudflared.env
+```
+
+サーバーまたは上流 firewall で outbound を制限している場合は、Cloudflare Tunnel 用に TCP/UDP 7844 を許可します。inbound port の許可は追加しません。
+
+Tunnel の **Routes > Add route > Published application** で次を設定します。
+
+- Hostname: `<DOMAIN>`
+- Service URL: `http://reverse-proxy:80`
+
+この設定により `<DOMAIN>` の DNS record は tunnel の `<UUID>.cfargotunnel.com` へ関連付けられ、ブラウザ向け証明書は Cloudflare edge が管理します。Certbot、Let’s Encrypt の origin 証明書、Cloudflare DNS API token は使用しません。
+
+### Nginx を HTTP origin に変更
+
+`nginx/conf.d/default.conf` を次の内容へ置き換えます。Nginx は Docker network 内の `cloudflared` から HTTP で受け、ブラウザとの通信が HTTPS であったことを Web アプリへ伝えます。
+
+```nginx
+# Docker の組み込み DNS。upstream を変数経由にして起動時の名前解決失敗を避ける
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+server {
+    listen 80;
+    server_name _;
+
+    location ^~ /internal/jobs/ {
+        return 404;
+    }
+
+    location / {
+        set $upstream http://web:5173;
+        proxy_pass $upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+443番の `server` block、HTTP から HTTPS への redirect、`ssl_certificate`、`ssl_certificate_key` は削除します。`reverse-proxy` 自体はホストへ port を公開しないため、この HTTP listener へインターネットから直接接続することはできません。
+
+### Compose の service と network を変更
+
+`compose.yml` に `cloudflared` service を追加します。
+
+```yaml
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    env_file:
+      - /etc/dailygreen/cloudflared.env
+    depends_on:
+      - reverse-proxy
+    restart: unless-stopped
+    networks:
+      - edge-network
+```
+
+既存 service の `networks` を次の対応に変更します。
+
+| Service | Networks |
+| --- | --- |
+| `cloudflared` | `edge-network` |
+| `reverse-proxy` | `edge-network`, `app-network` |
+| `web` | `app-network`, `db-network` |
+| `notification-scheduler` | `app-network` |
+| `db` | `db-network` |
+
+`reverse-proxy` から `ports` と `./nginx/cert:/etc/nginx/cert` volume を削除し、`web` から `127.0.0.1:5173:5173` の `ports` を削除します。DB をサーバー上の SSH port forwarding から保守するため、`db` の `127.0.0.1:5432:5432` だけは維持します。
+
+Compose の `networks` 定義は次のようにします。`cloudflared` は Cloudflare へ outbound 接続し、`web` は OAuth や Push Service へ outbound 接続するため、`edge-network` と `app-network` に `internal: true` は設定しません。DB 専用 network だけを internal にします。
+
+```yaml
+networks:
+  edge-network:
+    driver: bridge
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+    internal: true
+```
+
+`docker` group は root 相当の権限を持つため、信頼できるユーザーだけを所属させてください。`docker compose config` は `env_file` の秘密値を展開して表示するため、この構成では実行せず、quiet mode で構文だけを検証します。
 
 リポジトリルートで実行します。
 
 ```bash
 cd ~/dailygreen
-docker compose --env-file web-app/.env config
+docker compose --env-file web-app/.env config -q
 docker compose --env-file web-app/.env up -d --build
 docker compose --env-file web-app/.env ps
 ```
@@ -263,7 +368,11 @@ DB が healthy になったことを確認してから、マイグレーショ�
 docker compose --env-file web-app/.env ps
 docker compose --env-file web-app/.env logs --tail=100 db web notification-scheduler
 docker compose --env-file web-app/.env exec web pnpm db:migrate
+docker compose --env-file web-app/.env exec -T web sh -c 'test -z "$TUNNEL_TOKEN"'
+docker compose --env-file web-app/.env exec -T notification-scheduler sh -c 'test -z "$TUNNEL_TOKEN"'
 ```
+
+最後の2コマンドが終了 code 0 になることを確認し、tunnel token が `web` と scheduler へ渡されていないことを検証します。
 
 ## 10. 動作確認
 
@@ -271,31 +380,39 @@ docker compose --env-file web-app/.env exec web pnpm db:migrate
 
 ```bash
 docker compose --env-file web-app/.env ps
-sudo ss -tlnp | grep -E ':(80|443|10022)'
-curl -I http://127.0.0.1
-curl -k -I https://127.0.0.1
+docker compose --env-file web-app/.env logs --tail=100 cloudflared reverse-proxy
+sudo ss -tlnp | grep -E ':(80|443|5173)'
+curl -I https://<DOMAIN>/
 ```
 
-Windows のブラウザから `https://<SERVER_IP>/` を開き、アプリが表示されることを確認します。証明書をまだ設定していない場合、ブラウザの警告は証明書設定完了までの暫定状態です。
+`ss` の結果で80、443、5173番がホストの全interfaceへ公開されていないことを確認します。Windows のブラウザから `https://<DOMAIN>/` を開き、Cloudflare edge の証明書で警告なしにアプリが表示されることを確認します。
 
 次も確認します。
 
-- `ssh dailygreen-server` でconfig経由の公開鍵認証ができる
-- root での SSH ログインが拒否される
-- パスワードだけの SSH ログインが拒否される
-- `docker compose --env-file web-app/.env ps` で `db` が healthy、`web` と scheduler が稼働している
-- `http://<SERVER_IP>/internal/jobs/push-dispatch` が外部から 404 になる
+- `ssh dailygreen-server` で Tailscale SSH 接続できる
+- LAN IP の `<SERVER_IP>:22` へ直接 SSH 接続できない
+- `docker compose --env-file web-app/.env ps` で `db` が healthy、`cloudflared`、`reverse-proxy`、`web`、scheduler が稼働している
+- `http://<DOMAIN>/internal/jobs/push-dispatch` が外部から 404 になる
+- ルーターに80/443番の port forwarding がない
 - アプリのログイン、主要画面、DB を使う操作が正常に動作する
 
 ログ確認:
 
 ```bash
-docker compose --env-file web-app/.env logs -f --tail=200 web notification-scheduler reverse-proxy
+docker compose --env-file web-app/.env logs -f --tail=200 cloudflared reverse-proxy web notification-scheduler
 ```
+
+作業用 PC から DB を保守する場合は、Tailscale SSH 経由で一時的な local port forwarding を作成します。DB の5432番を LAN や tailnet へ直接公開しません。
+
+```powershell
+ssh -N -L 5432:127.0.0.1:5432 dailygreen-server
+```
+
+この SSH 接続を開いている間だけ、作業用 PC の `127.0.0.1:5432` からサーバーの PostgreSQL へ接続できます。
 
 ## 障害時の切り戻し
 
-SSH の設定変更で接続できなくなった場合は、サーバーのローカルコンソールから `/etc/ssh/sshd_config.bak.*` を確認し、修正後に必ず `sudo sshd -t` を実行してから `sudo systemctl restart ssh` します。22 番を削除する前に 10022 番での新規接続を確認することが重要です。
+Tailscale SSH で接続できなくなった場合は、サーバーのローカルコンソールから `tailscale status`、`sudo systemctl status tailscaled`、tailnet の access policy を確認します。復旧のため一時的に通常の SSH を再度許可する場合は、ルーターで port forwarding せず、信頼できる LAN 内からだけ接続して作業完了後に `sudo ufw delete allow 22/tcp` で閉じます。
 
 Compose の状態確認:
 
@@ -306,8 +423,8 @@ docker compose --env-file web-app/.env logs --tail=200
 
 ## 公開時の注意
 
-- UFW は必要なポートだけ許可します。SSH は可能なら LAN または VPN からだけ許可し、インターネット全体への公開を避けます。
-- Compose の DB（5432）と開発用 Web（5173）は `127.0.0.1` bind のため、ルーターからポート転送しません。
-- 外部公開する場合は通常、ルーターで 80/443 のみを転送し、SSH は VPN または送信元 IP 制限を利用します。
-- HTTPS の正式な証明書、DNS、ルーターのポート転送、バックアップ、OS の自動セキュリティ更新は別途運用設計が必要です。
+- UFW でインターネットからの inbound 接続を許可せず、SSH は Tailscale SSH だけを使用します。
+- Compose の DB（5432）は `127.0.0.1` だけへ bindし、Web（5173）と Nginx（80）はホストへ publish しません。
+- ルーターで22/80/443/5432番を port forwarding しません。公開通信は `cloudflared` が開始する outbound tunnel だけを使用します。
+- tunnel token が漏えいした場合は Cloudflare dashboard で token を rotateし、`/etc/dailygreen/cloudflared.env` を更新して `cloudflared` service を再作成します。
 - `docker compose down -v` は PostgreSQL のデータボリュームを削除するため、本番では実行しません。
