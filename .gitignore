@@ -13,3 +13,6 @@ notification-scheduler/.env
 
 # リバースプロキシ用証明書
 nginx/cert/
+
+# Cloudflare Tunnel token
+cloudflared.env

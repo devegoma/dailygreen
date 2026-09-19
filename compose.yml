@@ -16,14 +16,12 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - dailygreen-network
+      - db-network
 
   web:
     build:
       context: ./web-app
       target: dev
-    ports:
-      - "127.0.0.1:5173:5173"
     env_file:
       - ./web-app/.env
     environment:
@@ -35,7 +33,8 @@ services:
       db:
         condition: service_healthy
     networks:
-      - dailygreen-network
+      - app-network
+      - db-network
 
   notification-scheduler:
     build:
@@ -48,24 +47,38 @@ services:
       - web
     restart: unless-stopped
     networks:
-      - dailygreen-network
+      - app-network
 
   reverse-proxy:
     image: "nginx:1.29.6"
-    ports:
-      - "443:443"
-      - "80:80"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/cert:/etc/nginx/cert
     depends_on:
       - web
     networks:
-      - dailygreen-network
+      - edge-network
+      - app-network
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    env_file:
+      - path: /etc/dailygreen/cloudflared.env
+        required: false
+    depends_on:
+      - reverse-proxy
+    restart: unless-stopped
+    networks:
+      - edge-network
 
 networks:
-  dailygreen-network:
+  edge-network:
     driver: bridge
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+    internal: true
 
 volumes:
   postgres_data:
