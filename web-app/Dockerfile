@@ -36,6 +36,13 @@ FROM base AS production-deps
 COPY pnpm-lock.yaml package.json ./
 RUN pnpm install --prod --frozen-lockfile
 
+# DB migration専用ステージ
+FROM deps AS migrator
+COPY drizzle.config.ts ./drizzle.config.ts
+COPY drizzle ./drizzle
+COPY src/db ./src/db
+CMD ["pnpm", "run", "db:migrate"]
+
 # 本番用（実行）ステージ
 FROM base AS runner
 ENV NODE_ENV=production

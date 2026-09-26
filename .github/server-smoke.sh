@@ -41,8 +41,13 @@ log "server Composeにhost port publishがないことを確認します"
   });
 '
 
-log "db / web / reverse-proxyをbuild・起動します"
-"${compose[@]}" up -d --build db web reverse-proxy
+log "db / migrate / web / reverse-proxyをbuild・起動します"
+"${compose[@]}" up -d --build db migrate web reverse-proxy
+
+log "migrationが正常終了したことを確認します"
+migrate_id="$("${compose[@]}" ps -a -q migrate)"
+[[ -n "$migrate_id" ]] || fail "migrate containerが作成されていません"
+[[ "$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}' "$migrate_id")" == "exited:0" ]] || fail "migrationが正常終了していません"
 
 log "webがrunner targetの非rootユーザーで起動したことを確認します"
 web_id="$("${compose[@]}" ps -q web)"
@@ -61,11 +66,6 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 [[ "$nginx_ok" -eq 1 ]] || fail "Nginx経由でwebのhealth endpointへ接続できません"
-
-log "schedulerのdispatchに必要なDB schemaを適用します"
-for migration in web-app/drizzle/*.sql; do
-  sed 's/--> statement-breakpoint//g' "$migration"
-done | "${compose[@]}" exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null
 
 log "schedulerを起動し、webへのdispatch成功を確認します"
 "${compose[@]}" up -d --build --no-deps notification-scheduler

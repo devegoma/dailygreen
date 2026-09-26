@@ -332,7 +332,7 @@ Compose は次の3ファイルに分けます。
 
 - `compose.yml`: `db`、`web`、`notification-scheduler`、`reverse-proxy` の共通 service 設定
 - `compose.local.yml`: 共通 service を `extends` し、Webは `dev` target・5173番、Nginxは `nginx/conf.d/development.conf` を使用
-- `compose.server.yml`: 共通 service を `extends` し、Webは `runner` target・3000番、Nginxは `nginx/conf.d/production.conf`、サーバー専用の `cloudflared` serviceを使用
+- `compose.server.yml`: 共通 service を `extends` し、migration完了後にWebの `runner` target・3000番を起動。Nginxは `nginx/conf.d/production.conf`、サーバー専用の `cloudflared` serviceを使用
 
 `compose.server.yml` の `cloudflared` service は次のようにします。
 
@@ -358,6 +358,7 @@ Compose は次の3ファイルに分けます。
 | `reverse-proxy` | `edge-network`, `app-network` |
 | `web` | `app-network`, `db-network` |
 | `notification-scheduler` | `app-network` |
+| `migrate` | `db-network` |
 | `db` | `db-network` |
 
 `reverse-proxy` から `ports` と `./nginx/cert:/etc/nginx/cert` volume を削除します。Web の `127.0.0.1:5173:5173` とDBの `127.0.0.1:5432:5432` は `compose.local.yml` だけに定義し、サーバー構成ではホストへportを公開しません。
@@ -383,15 +384,14 @@ networks:
 cd ~/dailygreen
 docker compose -f compose.server.yml --env-file web-app/.env config -q
 docker compose -f compose.server.yml --env-file web-app/.env up -d --build
-docker compose -f compose.server.yml --env-file web-app/.env ps
+docker compose -f compose.server.yml --env-file web-app/.env ps -a
 ```
 
-DB が healthy になったことを確認してから、マイグレーションを適用します。
+この1コマンドで `db` healthy → `migrate` 正常終了 → `web` 起動の順に進みます。`migrate` が失敗した場合、`web` とそれに依存するserviceは起動しません。状態とログを確認します。
 
 ```bash
-docker compose -f compose.server.yml --env-file web-app/.env ps
-docker compose -f compose.server.yml --env-file web-app/.env logs --tail=100 db web notification-scheduler
-docker compose -f compose.server.yml --env-file web-app/.env exec web pnpm db:migrate
+docker compose -f compose.server.yml --env-file web-app/.env ps -a
+docker compose -f compose.server.yml --env-file web-app/.env logs --tail=100 db migrate web notification-scheduler
 docker compose -f compose.server.yml --env-file web-app/.env exec -T web sh -c 'test -z "$TUNNEL_TOKEN"'
 docker compose -f compose.server.yml --env-file web-app/.env exec -T notification-scheduler sh -c 'test -z "$TUNNEL_TOKEN"'
 ```

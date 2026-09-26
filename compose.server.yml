@@ -4,6 +4,21 @@ services:
       file: compose.yml
       service: db
 
+  migrate:
+    build:
+      context: ./web-app
+      target: migrator
+    env_file:
+      - ./web-app/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dailygreen}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - db-network
+
   web:
     extends:
       file: compose.yml
@@ -12,6 +27,9 @@ services:
       target: runner
     environment:
       PORT: 3000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   notification-scheduler:
     extends:
