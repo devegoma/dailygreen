@@ -2,6 +2,10 @@
 
 Ubuntu を自宅サーバーとしてセットアップし、Windows から SSH 接続したうえで Daily Green を Docker Compose で起動する手順です。
 
+## 構成図
+
+![Daily Green のネットワーク構成](./network.drawio.png)
+
 ## 前提
 
 - サーバー: Ubuntu Server（sudo 権限を持つ初期ユーザーでログイン済み）
@@ -253,7 +257,7 @@ Cloudflare dashboard の **Networking > Tunnels** で remotely-managed tunnel �
 Ubuntu 側で、`cloudflared` だけが読む環境変数ファイルをリポジトリ外へ作成します。
 
 ```bash
-sudo install -d -m 700 /etc/dailygreen
+sudo install -d -o root -g docker -m 750 /etc/dailygreen
 sudo nano /etc/dailygreen/cloudflared.env
 ```
 
