@@ -227,7 +227,7 @@ Windows 側の `.env` には、少なくとも次の値が設定されている�
 
 `BETTER_AUTH_SECRET` と `INTERNAL_JOB_TOKEN` は32文字以上のランダム値にします。`POSTGRES_PASSWORD` など Compose のデフォルト値も、本番では必ず変更してください。`.env` の権限と Git の追跡状態を確認します。
 
-本番用の `compose.prod.yml` はリポジトリルートの `.env` またはシェル環境変数を通常の変数置換元として使用します。今回は `.env` を `web-app/.env` に置くため、Compose 実行時に `-f compose.prod.yml --env-file web-app/.env` を指定します。`web-app/.env` の `DATABASE_URL` は Compose 内の `web` サービス設定で上書きされ、コンテナ間接続の `db:5432` が使用されます。
+サーバー用の `compose.server.yml` はリポジトリルートの `.env` またはシェル環境変数を通常の変数置換元として使用します。今回は `.env` を `web-app/.env` に置くため、Compose 実行時に `-f compose.server.yml --env-file web-app/.env` を指定します。`web-app/.env` の `DATABASE_URL` は Compose 内の `web` サービス設定で上書きされ、コンテナ間接続の `db:5432` が使用されます。
 
 Windows 側で、コピー対象の秘密ファイルが存在し、Gitへ登録されていないことを確認します。
 
@@ -292,11 +292,16 @@ Tunnel の **Routes > Add route > Published application** で次を設定しま�
 
 ### Nginx を HTTP origin に変更
 
-`nginx/conf.d/default.conf` を次の内容へ置き換えます。Nginx は Docker network 内の `cloudflared` から HTTP で受け、ブラウザとの通信が HTTPS であったことを Web アプリへ伝えます。
+本番用の `nginx/conf.d/production.conf` を次の内容にします。Nginx は Docker network 内の `cloudflared` から HTTP で受け、ブラウザとの通信が HTTPS であったことを Web アプリへ伝えます。本番のWebコンテナは `runner` targetを使用し、Composeで `PORT=3000` を設定します。
 
 ```nginx
-# Docker の組み込み DNS。upstream を変数経由にして起動時の名前解決失敗を避ける
+# Docker の組み込み DNS で web service のアドレス変更を追従する
 resolver 127.0.0.11 valid=10s ipv6=off;
+
+upstream web_backend {
+    zone web_backend 64k;
+    server web:3000 resolve;
+}
 
 server {
     listen 80;
@@ -307,8 +312,7 @@ server {
     }
 
     location / {
-        set $upstream http://web:5173;
-        proxy_pass $upstream;
+        proxy_pass http://web_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -327,10 +331,10 @@ server {
 Compose は次の3ファイルに分けます。
 
 - `compose.yml`: `db`、`web`、`notification-scheduler`、`reverse-proxy` の共通 service 設定
-- `compose.dev.yml`: 共通 service を `extends` し、開発用に Web の `127.0.0.1:5173` だけを公開
-- `compose.prod.yml`: 共通 service を `extends` し、本番専用の `cloudflared` service を追加
+- `compose.local.yml`: 共通 service を `extends` し、Webは `dev` target・5173番、Nginxは `nginx/conf.d/development.conf` を使用
+- `compose.server.yml`: 共通 service を `extends` し、Webは `runner` target・3000番、Nginxは `nginx/conf.d/production.conf`、サーバー専用の `cloudflared` serviceを使用
 
-`compose.prod.yml` の `cloudflared` service は次のようにします。
+`compose.server.yml` の `cloudflared` service は次のようにします。
 
 ```yaml
   cloudflared:
@@ -356,9 +360,9 @@ Compose は次の3ファイルに分けます。
 | `notification-scheduler` | `app-network` |
 | `db` | `db-network` |
 
-`reverse-proxy` から `ports` と `./nginx/cert:/etc/nginx/cert` volume を削除します。Web の `127.0.0.1:5173:5173` は `compose.dev.yml` だけに定義し、本番では公開しません。DB をサーバー上の SSH port forwarding から保守するため、`db` の `127.0.0.1:5432:5432` は共通設定として維持します。
+`reverse-proxy` から `ports` と `./nginx/cert:/etc/nginx/cert` volume を削除します。Web の `127.0.0.1:5173:5173` とDBの `127.0.0.1:5432:5432` は `compose.local.yml` だけに定義し、サーバー構成ではホストへportを公開しません。
 
-Compose の `networks` 定義は次のようにします。`extends` は service が参照するトップレベルの network と volume を自動で取り込まないため、この定義と volume 宣言は `compose.dev.yml` と `compose.prod.yml` の両方に明示します。`cloudflared` は Cloudflare へ outbound 接続し、`web` は OAuth や Push Service へ outbound 接続するため、`edge-network` と `app-network` に `internal: true` は設定しません。DB 専用 network だけを internal にします。
+Compose の `networks` 定義は次のようにします。`extends` は service が参照するトップレベルの network と volume を自動で取り込まないため、この定義と volume 宣言は `compose.local.yml` と `compose.server.yml` の両方に明示します。`cloudflared` は Cloudflare へ outbound 接続し、`web` は OAuth や Push Service へ outbound 接続するため、`edge-network` と `app-network` に `internal: true` は設定しません。DB 専用 network だけを internal にします。
 
 ```yaml
 networks:
@@ -377,19 +381,19 @@ networks:
 
 ```bash
 cd ~/dailygreen
-docker compose -f compose.prod.yml --env-file web-app/.env config -q
-docker compose -f compose.prod.yml --env-file web-app/.env up -d --build
-docker compose -f compose.prod.yml --env-file web-app/.env ps
+docker compose -f compose.server.yml --env-file web-app/.env config -q
+docker compose -f compose.server.yml --env-file web-app/.env up -d --build
+docker compose -f compose.server.yml --env-file web-app/.env ps
 ```
 
 DB が healthy になったことを確認してから、マイグレーションを適用します。
 
 ```bash
-docker compose -f compose.prod.yml --env-file web-app/.env ps
-docker compose -f compose.prod.yml --env-file web-app/.env logs --tail=100 db web notification-scheduler
-docker compose -f compose.prod.yml --env-file web-app/.env exec web pnpm db:migrate
-docker compose -f compose.prod.yml --env-file web-app/.env exec -T web sh -c 'test -z "$TUNNEL_TOKEN"'
-docker compose -f compose.prod.yml --env-file web-app/.env exec -T notification-scheduler sh -c 'test -z "$TUNNEL_TOKEN"'
+docker compose -f compose.server.yml --env-file web-app/.env ps
+docker compose -f compose.server.yml --env-file web-app/.env logs --tail=100 db web notification-scheduler
+docker compose -f compose.server.yml --env-file web-app/.env exec web pnpm db:migrate
+docker compose -f compose.server.yml --env-file web-app/.env exec -T web sh -c 'test -z "$TUNNEL_TOKEN"'
+docker compose -f compose.server.yml --env-file web-app/.env exec -T notification-scheduler sh -c 'test -z "$TUNNEL_TOKEN"'
 ```
 
 最後の2コマンドが終了 code 0 になることを確認し、tunnel token が `web` と scheduler へ渡されていないことを検証します。
@@ -399,8 +403,8 @@ docker compose -f compose.prod.yml --env-file web-app/.env exec -T notification-
 サーバー上で、公開ポートとコンテナの状態を確認します。
 
 ```bash
-docker compose -f compose.prod.yml --env-file web-app/.env ps
-docker compose -f compose.prod.yml --env-file web-app/.env logs --tail=100 cloudflared reverse-proxy
+docker compose -f compose.server.yml --env-file web-app/.env ps
+docker compose -f compose.server.yml --env-file web-app/.env logs --tail=100 cloudflared reverse-proxy
 sudo ss -tlnp | grep -E ':(80|443|5173)'
 curl -I https://<DOMAIN>/
 ```
@@ -411,7 +415,7 @@ curl -I https://<DOMAIN>/
 
 - `ssh dailygreen-server` で Tailscale SSH 接続できる
 - LAN IP の `<SERVER_IP>:22` へ直接 SSH 接続できない
-- `docker compose -f compose.prod.yml --env-file web-app/.env ps` で `db` が healthy、`cloudflared`、`reverse-proxy`、`web`、scheduler が稼働している
+- `docker compose -f compose.server.yml --env-file web-app/.env ps` で `db` が healthy、`cloudflared`、`reverse-proxy`、`web`、scheduler が稼働している
 - `http://<DOMAIN>/internal/jobs/push-dispatch` が外部から 404 になる
 - ルーターに80/443番の port forwarding がない
 - アプリのログイン、主要画面、DB を使う操作が正常に動作する
@@ -419,16 +423,16 @@ curl -I https://<DOMAIN>/
 ログ確認:
 
 ```bash
-docker compose -f compose.prod.yml --env-file web-app/.env logs -f --tail=200 cloudflared reverse-proxy web notification-scheduler
+docker compose -f compose.server.yml --env-file web-app/.env logs -f --tail=200 cloudflared reverse-proxy web notification-scheduler
 ```
 
-作業用 PC から DB を保守する場合は、Tailscale SSH 経由で一時的な local port forwarding を作成します。DB の5432番を LAN や tailnet へ直接公開しません。
+DB を保守する場合は、Tailscale SSHでサーバーへ接続し、DBコンテナ内の `psql` を使用します。サーバー構成ではDBの5432番をホスト、LAN、tailnetのいずれにも公開しません。
 
-```powershell
-ssh -N -L 5432:127.0.0.1:5432 dailygreen-server
+```bash
+cd ~/dailygreen
+docker compose -f compose.server.yml --env-file web-app/.env exec db \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
-
-この SSH 接続を開いている間だけ、作業用 PC の `127.0.0.1:5432` からサーバーの PostgreSQL へ接続できます。
 
 ## 障害時の切り戻し
 
@@ -437,14 +441,14 @@ Tailscale SSH で接続できなくなった場合は、サーバーのローカ
 Compose の状態確認:
 
 ```bash
-docker compose -f compose.prod.yml --env-file web-app/.env ps -a
-docker compose -f compose.prod.yml --env-file web-app/.env logs --tail=200
+docker compose -f compose.server.yml --env-file web-app/.env ps -a
+docker compose -f compose.server.yml --env-file web-app/.env logs --tail=200
 ```
 
 ## 公開時の注意
 
 - UFW でインターネットからの inbound 接続を許可せず、SSH は Tailscale SSH だけを使用します。
-- Compose の DB（5432）は `127.0.0.1` だけへ bindし、Web（5173）と Nginx（80）はホストへ publish しません。
+- サーバー用Composeでは、DB（5432）、Web（3000）、Nginx（80）のいずれもホストへpublishしません。
 - ルーターで22/80/443/5432番を port forwarding しません。公開通信は `cloudflared` が開始する outbound tunnel だけを使用します。
 - tunnel token が漏えいした場合は Cloudflare dashboard で token を rotateし、`/etc/dailygreen/cloudflared.env` を更新して `cloudflared` service を再作成します。
-- `docker compose -f compose.prod.yml down -v` は PostgreSQL のデータボリュームを削除するため、本番では実行しません。
+- `docker compose -f compose.server.yml down -v` は PostgreSQL のデータボリュームを削除するため、本番では実行しません。

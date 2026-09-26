@@ -21,7 +21,7 @@ command -v docker >/dev/null 2>&1 || fail "docker コマンドが見つかりま
 command -v curl >/dev/null 2>&1 || fail "curl コマンドが見つかりません"
 
 docker compose version >/dev/null 2>&1 || fail "docker compose を利用できません"
-compose=(docker compose -f compose.dev.yml)
+compose=(docker compose -f compose.local.yml)
 
 log "Compose設定を検証します"
 "${compose[@]}" config --quiet
