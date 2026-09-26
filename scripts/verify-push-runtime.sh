@@ -21,15 +21,16 @@ command -v docker >/dev/null 2>&1 || fail "docker コマンドが見つかりま
 command -v curl >/dev/null 2>&1 || fail "curl コマンドが見つかりません"
 
 docker compose version >/dev/null 2>&1 || fail "docker compose を利用できません"
+compose=(docker compose -f compose.dev.yml)
 
 log "Compose設定を検証します"
-docker compose config --quiet
+"${compose[@]}" config --quiet
 
 log "db / web / notification-scheduler を起動します"
-docker compose up -d --build db web notification-scheduler
+"${compose[@]}" up -d --build db web notification-scheduler
 
 log "webコンテナのPush runtime設定を検証します（値は表示しません）"
-docker compose exec -T web node <<'NODE'
+"${compose[@]}" exec -T web node <<'NODE'
 const required = [
   "VAPID_PUBLIC_KEY",
   "VAPID_PRIVATE_KEY",
@@ -49,7 +50,7 @@ console.log("push runtime env: ok");
 NODE
 
 log "schedulerの内部job token設定を検証します（値は表示しません）"
-docker compose exec -T notification-scheduler node <<'NODE'
+"${compose[@]}" exec -T notification-scheduler node <<'NODE'
 const token = process.env.INTERNAL_JOB_TOKEN?.trim();
 if (!token || token.length < 32) {
   console.error("INTERNAL_JOB_TOKEN is missing or too short");
@@ -61,7 +62,7 @@ NODE
 log "webコンテナの依存関係準備を待ちます"
 deps_ready=0
 for _ in $(seq 1 60); do
-  if docker compose exec -T web sh -c 'test -f /tmp/dailygreen-deps-ready && test -x node_modules/.bin/drizzle-kit' >/dev/null 2>&1; then
+  if "${compose[@]}" exec -T web sh -c 'test -f /tmp/dailygreen-deps-ready && test -x node_modules/.bin/drizzle-kit' >/dev/null 2>&1; then
     deps_ready=1
     break
   fi
@@ -70,7 +71,7 @@ done
 [[ "$deps_ready" -eq 1 ]] || fail "60秒以内にweb依存関係の準備が完了しませんでした"
 
 log "DB migrationを適用します"
-docker compose exec -T web pnpm run db:migrate
+"${compose[@]}" exec -T web pnpm run db:migrate
 
 log "web readinessを確認します"
 ready=0
@@ -84,10 +85,10 @@ done
 [[ "$ready" -eq 1 ]] || fail "60秒以内に /health/ready がreadyになりませんでした"
 
 log "schedulerを再起動し、内部dispatchの成功を確認します"
-docker compose restart notification-scheduler >/dev/null
+"${compose[@]}" restart notification-scheduler >/dev/null
 scheduler_ok=0
 for _ in $(seq 1 20); do
-  logs="$(docker compose logs --since 45s notification-scheduler 2>&1 || true)"
+  logs="$("${compose[@]}" logs --since 45s notification-scheduler 2>&1 || true)"
   if grep -q 'push_scheduler_dispatch_succeeded' <<<"$logs"; then
     scheduler_ok=1
     break
@@ -96,7 +97,7 @@ for _ in $(seq 1 20); do
 done
 
 if [[ "$scheduler_ok" -ne 1 ]]; then
-  docker compose logs --since 2m notification-scheduler >&2 || true
+  "${compose[@]}" logs --since 2m notification-scheduler >&2 || true
   fail "schedulerのdispatch成功ログを確認できませんでした"
 fi
 
