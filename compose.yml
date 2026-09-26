@@ -59,18 +59,6 @@ services:
       - edge-network
       - app-network
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run
-    env_file:
-      - path: /etc/dailygreen/cloudflared.env
-        required: false
-    depends_on:
-      - reverse-proxy
-    restart: unless-stopped
-    networks:
-      - edge-network
-
 networks:
   edge-network:
     driver: bridge

@@ -1,0 +1,35 @@
+services:
+  db:
+    extends:
+      file: compose.yml
+      service: db
+
+  web:
+    extends:
+      file: compose.yml
+      service: web
+    ports:
+      - "127.0.0.1:5173:5173"
+
+  notification-scheduler:
+    extends:
+      file: compose.yml
+      service: notification-scheduler
+
+  reverse-proxy:
+    extends:
+      file: compose.yml
+      service: reverse-proxy
+
+networks:
+  edge-network:
+    driver: bridge
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_data:
+  web_node_modules:

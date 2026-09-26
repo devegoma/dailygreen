@@ -1,0 +1,45 @@
+services:
+  db:
+    extends:
+      file: compose.yml
+      service: db
+
+  web:
+    extends:
+      file: compose.yml
+      service: web
+
+  notification-scheduler:
+    extends:
+      file: compose.yml
+      service: notification-scheduler
+
+  reverse-proxy:
+    extends:
+      file: compose.yml
+      service: reverse-proxy
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    env_file:
+      - path: /etc/dailygreen/cloudflared.env
+        required: false
+    depends_on:
+      - reverse-proxy
+    restart: unless-stopped
+    networks:
+      - edge-network
+
+networks:
+  edge-network:
+    driver: bridge
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_data:
+  web_node_modules:
