@@ -49,8 +49,7 @@ services:
     image: cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run
     env_file:
-      - path: /etc/dailygreen/cloudflared.env
-        required: false
+      - ${CLOUDFLARED_ENV_FILE:-/etc/dailygreen/cloudflared.env}
     depends_on:
       - reverse-proxy
     restart: unless-stopped

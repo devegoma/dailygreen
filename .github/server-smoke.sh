@@ -19,6 +19,12 @@ done
 
 compose=(docker compose --project-name dailygreen-server-smoke -f compose.server.yml --env-file web-app/.env)
 
+log "cloudflaredのenv fileがない場合に構成検証が失敗することを確認します"
+if CLOUDFLARED_ENV_FILE="$ROOT_DIR/.github/missing-cloudflared.env" "${compose[@]}" config --quiet >/dev/null 2>&1; then
+  fail "cloudflaredのenv fileがなくても構成検証に成功しました"
+fi
+export CLOUDFLARED_ENV_FILE=/dev/null
+
 cleanup() {
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 }

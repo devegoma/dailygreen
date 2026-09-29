@@ -1,9 +1,3 @@
-# NOTE: ひとまず開発向けにこのDockerfileを作成しました。今後インフラへのデプロイに際しては適宜調整される想定です。
-
-# 証明書保存用ディレクトリの作成
-FROM nginx:1.29.6
-RUN mkdir -p /etc/nginx/cert
-
 # ベースイメージ
 FROM node:26-alpine AS base
 ARG PNPM_VERSION=9.15.4

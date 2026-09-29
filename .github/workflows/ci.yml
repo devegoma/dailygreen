@@ -122,7 +122,7 @@ jobs:
           cp notification-scheduler/.env.example notification-scheduler/.env
           docker compose -f compose.yml config --quiet
           docker compose -f compose.local.yml config --quiet
-          docker compose -f compose.server.yml config --quiet
+          CLOUDFLARED_ENV_FILE=/dev/null docker compose -f compose.server.yml config --quiet
       - name: Run server runtime smoke test
         working-directory: .
         run: |

@@ -237,7 +237,7 @@ Test-Path "<WINDOWS_REPOSITORY_DIR>\notification-scheduler\.env"
 git -C "<WINDOWS_REPOSITORY_DIR>" status --short --ignored
 ```
 
-SSH のポート変更後、PowerShell からサーバー上の対応するディレクトリへコピーします。
+Tailscale SSH への切り替え後、PowerShell からサーバー上の対応するディレクトリへコピーします。
 
 ```powershell
 scp `
@@ -341,14 +341,15 @@ Compose は次の3ファイルに分けます。
     image: cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run
     env_file:
-      - path: /etc/dailygreen/cloudflared.env
-        required: false
+      - ${CLOUDFLARED_ENV_FILE:-/etc/dailygreen/cloudflared.env}
     depends_on:
       - reverse-proxy
     restart: unless-stopped
     networks:
       - edge-network
 ```
+
+既定の `/etc/dailygreen/cloudflared.env` は必須です。ファイルがなければComposeの構成検証時に失敗します。`CLOUDFLARED_ENV_FILE` による差し替えは、tokenを使わないCI smoke test専用です。
 
 共通 service の `networks` は次の対応にします。
 
@@ -405,11 +406,11 @@ docker compose -f compose.server.yml --env-file web-app/.env exec -T notificatio
 ```bash
 docker compose -f compose.server.yml --env-file web-app/.env ps
 docker compose -f compose.server.yml --env-file web-app/.env logs --tail=100 cloudflared reverse-proxy
-sudo ss -tlnp | grep -E ':(80|443|5173)'
+sudo ss -tlnp | grep -E ':(80|443|3000|5432)'
 curl -I https://<DOMAIN>/
 ```
 
-`ss` の結果で80、443、5173番がホストの全interfaceへ公開されていないことを確認します。Windows のブラウザから `https://<DOMAIN>/` を開き、Cloudflare edge の証明書で警告なしにアプリが表示されることを確認します。
+`ss` の結果で80、443、3000、5432番がホストの全interfaceへ公開されていないことを確認します。Windows のブラウザから `https://<DOMAIN>/` を開き、Cloudflare edge の証明書で警告なしにアプリが表示されることを確認します。
 
 次も確認します。
 
