@@ -17,7 +17,7 @@ pnpm run build
 
 スキーマ: [`src/db/schema.ts`](src/db/schema.ts) · 設定: [`drizzle.config.ts`](drizzle.config.ts)（マイグレーション出力は `./drizzle`）
 
-Kit を使うときは **`DATABASE_URL` が必要**。ホストから DB に触るときは **`localhost:5432`**、Compose 内の `web` からは **`db:5432`**（ルートの `compose.yml` 起動時は `web` 向け URL は compose が渡す）。
+Kit を使うときは **`DATABASE_URL` が必要**。ホストから DB に触るときは **`localhost:5432`**、Compose 内の `web` からは **`db:5432`**（ルートの `compose.local.yml` 起動時は `web` 向け URL は Compose が渡す）。
 
 ```bash
 pnpm run db:generate   # スキーマ変更 → SQL 生成
@@ -29,10 +29,10 @@ pnpm run db:studio     # Drizzle Studio
 
 ## Docker Compose（PostgreSQL + Web）
 
-リポジトリルートの `compose.yml` で起動します。
+リポジトリルートの `compose.local.yml` で起動します。共通サービス設定は `compose.yml` から `extends` されます。
 
 ```bash
-docker compose up -d
+docker compose -f compose.local.yml up -d
 ```
 
 - アプリ: `http://localhost:5173`
@@ -41,18 +41,18 @@ docker compose up -d
 `web` はソースを `./web-app` からマウントし、`node_modules` は専用ボリューム＋起動時 `pnpm install` でホストのロックファイルと揃えます。
 
 ```bash
-docker compose logs -f db web
-docker compose down
+docker compose -f compose.local.yml logs -f db web
+docker compose -f compose.local.yml down
 ```
 
 DB を含め Volume を消してやり直す場合:
 
 ```bash
-docker compose down -v
-docker compose up -d
+docker compose -f compose.local.yml down -v
+docker compose -f compose.local.yml up -d
 ```
 
-マイグレーションは自動では走りません。`docker compose up -d` 後、`web-app` で:
+マイグレーションは自動では走りません。`docker compose -f compose.local.yml up -d` 後、`web-app` で:
 
 ```bash
 cd web-app

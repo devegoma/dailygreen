@@ -7,7 +7,7 @@
 PostgreSQL と Web アプリを Docker Compose で起動する場合、リポジトリルートで次を実行します。
 
 ```bash
-docker compose up -d
+docker compose -f compose.local.yml up -d
 ```
 
 詳細は [web-app/README.md](web-app/README.md) を参照してください。

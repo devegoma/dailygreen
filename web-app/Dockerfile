@@ -1,9 +1,3 @@
-# NOTE: ひとまず開発向けにこのDockerfileを作成しました。今後インフラへのデプロイに際しては適宜調整される想定です。
-
-# 証明書保存用ディレクトリの作成
-FROM nginx:1.29.6
-RUN mkdir -p /etc/nginx/cert
-
 # ベースイメージ
 FROM node:26-alpine AS base
 ARG PNPM_VERSION=9.15.4
@@ -35,6 +29,13 @@ RUN pnpm run build
 FROM base AS production-deps
 COPY pnpm-lock.yaml package.json ./
 RUN pnpm install --prod --frozen-lockfile
+
+# DB migration専用ステージ
+FROM deps AS migrator
+COPY drizzle.config.ts ./drizzle.config.ts
+COPY drizzle ./drizzle
+COPY src/db ./src/db
+CMD ["pnpm", "run", "db:migrate"]
 
 # 本番用（実行）ステージ
 FROM base AS runner
