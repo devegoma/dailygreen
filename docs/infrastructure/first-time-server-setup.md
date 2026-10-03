@@ -290,6 +290,15 @@ Tunnel の **Routes > Add route > Published application** で次を設定しま�
 
 この設定により `<DOMAIN>` の DNS record は tunnel の `<UUID>.cfargotunnel.com` へ関連付けられ、ブラウザ向け証明書は Cloudflare edge が管理します。Certbot、Let’s Encrypt の origin 証明書、Cloudflare DNS API token は使用しません。
 
+### Cloudflare で HTTP から HTTPS へのredirectを有効化
+
+この設定はサーバーやリポジトリではなく、Cloudflareアカウントを管理するユーザーがCloudflare dashboard上で行います。
+
+1. 対象のdomainを選択し、**SSL/TLS > Overview** で暗号化modeが `Off` ではないことを確認します。
+2. **SSL/TLS > Edge Certificates** を開き、edge certificateが有効であることを確認してから、**Always Use HTTPS** を有効にします。
+
+これによりvisitorのHTTP requestはoriginへ到達する前にCloudflare edgeでHTTPSへredirectされます。Nginx側にはHTTPからHTTPSへのredirectを追加しません。`Always Use HTTPS` はzone内の全hostnameに適用されるため、一部のhostnameだけを対象にする必要がある場合は、同等のCloudflare Redirect Ruleを対象hostnameへ設定します。詳細は[Cloudflare公式のAlways Use HTTPS手順](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/)を参照してください。
+
 ### Nginx を HTTP origin に変更
 
 本番用の `nginx/conf.d/production.conf` を次の内容にします。Nginx は Docker network 内の `cloudflared` から HTTP で受け、ブラウザとの通信が HTTPS であったことを Web アプリへ伝えます。本番のWebコンテナは `runner` targetを使用し、Composeで `PORT=3000` を設定します。
@@ -407,17 +416,18 @@ docker compose -f compose.server.yml --env-file web-app/.env exec -T notificatio
 docker compose -f compose.server.yml --env-file web-app/.env ps
 docker compose -f compose.server.yml --env-file web-app/.env logs --tail=100 cloudflared reverse-proxy
 sudo ss -tlnp | grep -E ':(80|443|3000|5432)'
+curl -I http://<DOMAIN>/
 curl -I https://<DOMAIN>/
 ```
 
-`ss` の結果で80、443、3000、5432番がホストの全interfaceへ公開されていないことを確認します。Windows のブラウザから `https://<DOMAIN>/` を開き、Cloudflare edge の証明書で警告なしにアプリが表示されることを確認します。
+`ss` の結果で80、443、3000、5432番がホストの全interfaceへ公開されていないことを確認します。HTTPへの`curl`が301または308を返し、`Location` headerが`https://<DOMAIN>/`を指すことも確認します。Windows のブラウザから `https://<DOMAIN>/` を開き、Cloudflare edge の証明書で警告なしにアプリが表示されることを確認します。
 
 次も確認します。
 
 - `ssh dailygreen-server` で Tailscale SSH 接続できる
 - LAN IP の `<SERVER_IP>:22` へ直接 SSH 接続できない
 - `docker compose -f compose.server.yml --env-file web-app/.env ps` で `db` が healthy、`cloudflared`、`reverse-proxy`、`web`、scheduler が稼働している
-- `http://<DOMAIN>/internal/jobs/push-dispatch` が外部から 404 になる
+- `https://<DOMAIN>/internal/jobs/push-dispatch` が外部から 404 になる
 - ルーターに80/443番の port forwarding がない
 - アプリのログイン、主要画面、DB を使う操作が正常に動作する
 
