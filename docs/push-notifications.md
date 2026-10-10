@@ -304,3 +304,20 @@ HAVING count(*) > 10;
 更新の古い順で不要な購読を整理する。すべて自動削除はしない。
 `skippedUnsafeSubscriptions`、`truncatedLegacySubscriptions`、
 `failedSubscriptions`、`durationMs` を継続監視する。
+
+### リリース前の検証コマンド
+
+web-appディレクトリから次を実行する。
+
+```sh
+pnpm run check:ci
+pnpm run typecheck
+pnpm test
+pnpm run db:check
+pnpm run test:integration
+pnpm run build
+```
+
+CIの統合テスト用にPostgreSQLが必要。実際のブラウザの
+`PushSubscription.endpoint` の形式と、アカウント切替時の
+`unsubscribe()` / `subscribe()` は別途実機で確認する。
