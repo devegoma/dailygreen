@@ -2,8 +2,8 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "~/db/index.server";
 import { notificationSetting, pushRegistrationRateLimit, pushSubscription, user } from "~/db/schema";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
-import { env } from "~/lib/env.server";
 import { ApiError } from "~/lib/api/errors";
+import { env } from "~/lib/env.server";
 import type {
 	NotificationSettingsResponse,
 	PushSubscriptionRequest,
