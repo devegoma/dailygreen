@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
-import { signOut, useSession } from "~/lib/auth-client";
 import { releaseCurrentDevicePushSubscription } from "~/features/push/push-notifications.browser";
+import { signOut, useSession } from "~/lib/auth-client";
 import { useJstMidnightHomeRefresh } from "./home.day-change";
 import { clearHomeCache, useHomeQuery } from "./home.query";
 import { HomeHeader } from "./home-header";
