@@ -5,11 +5,10 @@ import {
 	getNotificationSettings,
 	isPushSupported,
 	registerPushSubscription,
+	releaseCurrentDevicePushSubscription,
 	serializePushSubscription,
-	unregisterPushSubscription,
 	updateNotificationSettings,
 	urlBase64ToUint8Array,
-	releaseCurrentDevicePushSubscription,
 } from "./push-notifications.browser";
 
 type NotificationSettingsCardProps = {
