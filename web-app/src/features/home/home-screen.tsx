@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 import { signOut, useSession } from "~/lib/auth-client";
+import { releaseCurrentDevicePushSubscription } from "~/features/push/push-notifications.browser";
 import { useJstMidnightHomeRefresh } from "./home.day-change";
 import { clearHomeCache, useHomeQuery } from "./home.query";
 import { HomeHeader } from "./home-header";
@@ -82,6 +83,9 @@ export function HomeScreen() {
 		setIsLoggingOut(true);
 		setLogoutError(null);
 		try {
+			// Authenticated DELETE must run before the session is invalidated.
+			// Browser-side unsubscribe still runs if that request fails.
+			await releaseCurrentDevicePushSubscription().catch(() => undefined);
 			const result = await signOut();
 			if (result.error) {
 				throw result.error;
