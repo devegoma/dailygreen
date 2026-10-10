@@ -35,7 +35,7 @@ jobs:
           const lines = lock.split(String.fromCharCode(10));
           for (const [name, patchedVersion] of [['react-start', '1.168.60'], ['start-server-core', '1.169.39']]) {
             const prefix = "  '@tanstack/" + name + "@";
-            const versions = lines.filter((line) => line.startsWith(prefix)).map((line) => line.slice(prefix.length).split("'")[0]);
+            const versions = [...new Set(lines.filter((line) => line.startsWith(prefix)).map((line) => line.slice(prefix.length).split("'")[0].split('(')[0]))];
             if (versions.length !== 1 || versions[0] !== patchedVersion) {
               throw new Error('Unexpected @tanstack/' + name + ' versions: ' + JSON.stringify(versions));
             }
