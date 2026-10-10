@@ -5,6 +5,10 @@ export const apiErrorStatuses = {
 	HABIT_ARCHIVED: 409,
 	HABIT_ALREADY_COMPLETED_TODAY: 409,
 	HABIT_LIMIT_EXCEEDED: 409,
+	PUSH_ENDPOINT_NOT_ALLOWED: 400,
+	PUSH_SUBSCRIPTION_CONFLICT: 409,
+	PUSH_SUBSCRIPTION_LIMIT_EXCEEDED: 409,
+	PUSH_REGISTRATION_RATE_LIMITED: 429,
 	INTERNAL_SERVER_ERROR: 500,
 } as const;
 
@@ -15,6 +19,10 @@ export const apiErrorMessages = {
 	HABIT_ARCHIVED: "この習慣はアーカイブ済みです。",
 	HABIT_ALREADY_COMPLETED_TODAY: "この習慣は本日すでに達成済みです。",
 	HABIT_LIMIT_EXCEEDED: "習慣の登録上限に達しています。",
+	PUSH_ENDPOINT_NOT_ALLOWED: "このブラウザの通知送信先には対応していません。",
+	PUSH_SUBSCRIPTION_CONFLICT: "この端末の通知登録は別アカウントに紐づいています。",
+	PUSH_SUBSCRIPTION_LIMIT_EXCEEDED: "通知を受け取る端末は最大10件です。",
+	PUSH_REGISTRATION_RATE_LIMITED: "短時間に登録が集中しました。しばらくしてからお試しください。",
 	INTERNAL_SERVER_ERROR: "サーバー内部でエラーが発生しました。",
 } as const satisfies Record<ApiErrorCode, string>;
 
