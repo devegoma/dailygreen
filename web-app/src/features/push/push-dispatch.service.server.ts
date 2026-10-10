@@ -1,4 +1,15 @@
-import { and, count, desc, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	inArray,
+	isNull,
+	lte,
+	ne,
+	or,
+	sql,
+} from "drizzle-orm";
 import type {
 	RequestOptions,
 	PushSubscription as WebPushSubscription,
@@ -125,18 +136,28 @@ async function claimDueUsers(now: Date): Promise<{
 
 		// Rotate a bounded window each minute so long-lived ineligible users
 		// at the start of the index do not starve later subscribers.
-		const offset = (Math.floor(now.getTime() / 60_000) * MAX_CANDIDATES_PER_RUN)
-			% summary.candidateUsers;
+		const offset =
+			(Math.floor(now.getTime() / 60_000) * MAX_CANDIDATES_PER_RUN) %
+			summary.candidateUsers;
 		const selectCandidates = (start: number, limit: number) =>
-			tx.select({ userId: notificationSetting.userId })
+			tx
+				.select({ userId: notificationSetting.userId })
 				.from(notificationSetting)
 				.where(dueCondition)
 				.orderBy(notificationSetting.userId)
 				.offset(start)
 				.limit(limit);
 		const candidates = await selectCandidates(offset, MAX_CANDIDATES_PER_RUN);
-		if (candidates.length < MAX_CANDIDATES_PER_RUN && candidates.length < summary.candidateUsers) {
-			candidates.push(...await selectCandidates(0, MAX_CANDIDATES_PER_RUN - candidates.length));
+		if (
+			candidates.length < MAX_CANDIDATES_PER_RUN &&
+			candidates.length < summary.candidateUsers
+		) {
+			candidates.push(
+				...(await selectCandidates(
+					0,
+					MAX_CANDIDATES_PER_RUN - candidates.length,
+				)),
+			);
 		}
 		summary.scannedCandidateUsers = candidates.length;
 		let reservedSubscriptions = 0;
@@ -189,12 +210,17 @@ async function claimDueUsers(now: Date): Promise<{
 				summary.skippedNoSubscriptions += 1;
 				continue;
 			}
-			if (reservedSubscriptions + Math.min(subscriptions.length, MAX_LEGACY_SUBSCRIPTIONS_PER_USER) > MAX_SUBSCRIPTIONS_PER_RUN) {
+			if (
+				reservedSubscriptions +
+					Math.min(subscriptions.length, MAX_LEGACY_SUBSCRIPTIONS_PER_USER) >
+				MAX_SUBSCRIPTIONS_PER_RUN
+			) {
 				summary.deferredByBudget += 1;
 				break;
 			}
 			if (subscriptions.length > MAX_LEGACY_SUBSCRIPTIONS_PER_USER) {
-				summary.truncatedLegacySubscriptions += subscriptions.length - MAX_LEGACY_SUBSCRIPTIONS_PER_USER;
+				summary.truncatedLegacySubscriptions +=
+					subscriptions.length - MAX_LEGACY_SUBSCRIPTIONS_PER_USER;
 			}
 
 			const claimed = await tx
@@ -215,7 +241,10 @@ async function claimDueUsers(now: Date): Promise<{
 				continue;
 			}
 
-			const selected = subscriptions.slice(0, MAX_LEGACY_SUBSCRIPTIONS_PER_USER);
+			const selected = subscriptions.slice(
+				0,
+				MAX_LEGACY_SUBSCRIPTIONS_PER_USER,
+			);
 			claimedUsers.push({ incompleteCount, subscriptions: selected });
 			reservedSubscriptions += selected.length;
 			summary.claimedUsers += 1;
@@ -281,7 +310,10 @@ export async function dispatchPushNotifications(
 			body: `今日の習慣があと${claimedUser.incompleteCount}個残っています`,
 			url: "/",
 		});
-		return claimedUser.subscriptions.map((subscription) => ({ subscription, payload }));
+		return claimedUser.subscriptions.map((subscription) => ({
+			subscription,
+			payload,
+		}));
 	});
 
 	let nextIndex = 0;
@@ -294,12 +326,18 @@ export async function dispatchPushNotifications(
 			return;
 		}
 		try {
-			await sendPush(toWebPushSubscription(subscription), payload, requestOptions);
+			await sendPush(
+				toWebPushSubscription(subscription),
+				payload,
+				requestOptions,
+			);
 			summary.successfulSubscriptions += 1;
 		} catch (error) {
 			if (isInvalidSubscriptionError(error)) {
 				try {
-					await db.delete(pushSubscription).where(eq(pushSubscription.id, subscription.id));
+					await db
+						.delete(pushSubscription)
+						.where(eq(pushSubscription.id, subscription.id));
 					summary.removedInvalidSubscriptions += 1;
 				} catch {
 					summary.failedSubscriptions += 1;
@@ -308,8 +346,10 @@ export async function dispatchPushNotifications(
 				return;
 			}
 			summary.failedSubscriptions += 1;
-			const rawStatus = typeof error === "object" && error !== null && "statusCode" in error
-				? (error as { statusCode?: unknown }).statusCode : null;
+			const rawStatus =
+				typeof error === "object" && error !== null && "statusCode" in error
+					? (error as { statusCode?: unknown }).statusCode
+					: null;
 			writeDispatchLog("warn", "subscription_failed", {
 				statusCode: typeof rawStatus === "number" ? rawStatus : undefined,
 			});

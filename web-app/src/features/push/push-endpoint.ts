@@ -15,7 +15,11 @@ export type PushEndpointRejection = "invalid_url" | "unsupported_host";
 export function pushEndpointRejectionReason(
 	endpoint: unknown,
 ): PushEndpointRejection | null {
-	if (typeof endpoint !== "string" || endpoint.length === 0 || endpoint.length > 4096) {
+	if (
+		typeof endpoint !== "string" ||
+		endpoint.length === 0 ||
+		endpoint.length > 4096
+	) {
 		return "invalid_url";
 	}
 

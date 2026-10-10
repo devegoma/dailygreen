@@ -45,7 +45,6 @@ describe("serializePushSubscription", () => {
 	});
 });
 
-
 function mockSupportedBrowser(unsubscribe: () => Promise<boolean>) {
 	const subscription = {
 		endpoint: "https://fcm.googleapis.com/fcm/send/token",
@@ -54,7 +53,11 @@ function mockSupportedBrowser(unsubscribe: () => Promise<boolean>) {
 	const getRegistration = vi.fn().mockResolvedValue({
 		pushManager: { getSubscription: vi.fn().mockResolvedValue(subscription) },
 	});
-	vi.stubGlobal("window", { isSecureContext: true, PushManager: class {}, Notification: { permission: "granted" } });
+	vi.stubGlobal("window", {
+		isSecureContext: true,
+		PushManager: class {},
+		Notification: { permission: "granted" },
+	});
 	vi.stubGlobal("navigator", { serviceWorker: { getRegistration } });
 	return { subscription, getRegistration };
 }
@@ -67,7 +70,9 @@ afterEach(() => {
 describe("current device push revocation", () => {
 	it("logout前に本人のendpointだけDELETEし、ブラウザの購読も解除する", async () => {
 		const { subscription } = mockSupportedBrowser(async () => true);
-		const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(new Response(null, { status: 204 }));
 		vi.stubGlobal("fetch", fetchMock);
 
 		await releaseCurrentDevicePushSubscription();
@@ -95,17 +100,28 @@ describe("current device push revocation", () => {
 
 describe("Push registration API errors", () => {
 	it("409エラーの具体的なコードをクライアントで受け取れる", async () => {
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-			new Response(JSON.stringify({ code: "PUSH_SUBSCRIPTION_CONFLICT", message: "sensitive server text" }), {
-				status: 409,
-				headers: { "content-type": "application/json" },
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue(
+				new Response(
+					JSON.stringify({
+						code: "PUSH_SUBSCRIPTION_CONFLICT",
+						message: "sensitive server text",
+					}),
+					{
+						status: 409,
+						headers: { "content-type": "application/json" },
+					},
+				),
+			),
+		);
+		await expect(
+			registerPushSubscription({
+				endpoint: "https://fcm.googleapis.com/fcm/send/token",
+				expirationTime: null,
+				keys: { p256dh: "public-key", auth: "auth" },
 			}),
-		));
-		await expect(registerPushSubscription({
-			endpoint: "https://fcm.googleapis.com/fcm/send/token",
-			expirationTime: null,
-			keys: { p256dh: "public-key", auth: "auth" },
-		})).rejects.toMatchObject({
+		).rejects.toMatchObject({
 			name: "ApiClientError",
 			code: "PUSH_SUBSCRIPTION_CONFLICT",
 			status: 409,

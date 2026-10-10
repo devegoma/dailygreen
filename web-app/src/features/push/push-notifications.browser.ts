@@ -1,5 +1,9 @@
 import { ApiClientError, requestJson } from "~/lib/api/client";
-import { type ApiErrorCode, apiErrorMessages, apiErrorStatuses } from "~/lib/api/errors";
+import {
+	type ApiErrorCode,
+	apiErrorMessages,
+	apiErrorStatuses,
+} from "~/lib/api/errors";
 import type {
 	DeletePushSubscriptionRequest,
 	NotificationSettingsResponse,
@@ -73,11 +77,14 @@ async function requestNoContent(
 		// Preserve the typed code for 409 ownership/limit and 429 rate errors.
 		// Never trust or show arbitrary response text containing subscription data.
 		const body: unknown = await response.json().catch(() => null);
-		const rawCode = typeof body === "object" && body !== null && "code" in body
-			? body.code : null;
+		const rawCode =
+			typeof body === "object" && body !== null && "code" in body
+				? body.code
+				: null;
 		const code: ApiErrorCode | null =
 			typeof rawCode === "string" && Object.hasOwn(apiErrorStatuses, rawCode)
-				? rawCode as ApiErrorCode : null;
+				? (rawCode as ApiErrorCode)
+				: null;
 		throw new ApiClientError(
 			code ? apiErrorMessages[code] : "通知設定の更新に失敗しました。",
 			{
@@ -124,7 +131,6 @@ export function unregisterPushSubscription(
 		body: JSON.stringify(body),
 	});
 }
-
 
 /**
  * Revoke only this browser's subscription while still authenticated.

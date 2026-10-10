@@ -106,7 +106,10 @@ export function NotificationSettingsCard({
 		};
 	}, [onUnauthorized]);
 
-	async function handleSubscribe(enableReminder: boolean, resetExisting = false) {
+	async function handleSubscribe(
+		enableReminder: boolean,
+		resetExisting = false,
+	) {
 		if (!settings?.vapidPublicKey || isBusy) return;
 		setIsBusy(true);
 		setError(null);
@@ -153,14 +156,20 @@ export function NotificationSettingsCard({
 				);
 			} else if (isApiClientError(cause) && cause.status === 401) {
 				await onUnauthorized();
-			} else if (isApiClientError(cause) && cause.code === "PUSH_SUBSCRIPTION_CONFLICT") {
+			} else if (
+				isApiClientError(cause) &&
+				cause.code === "PUSH_SUBSCRIPTION_CONFLICT"
+			) {
 				setNeedsRecovery(true);
-				setError("別アカウントがこの端末の通知登録を利用しています。下のボタンから購読を作り直せます。");
-			} else if (isApiClientError(cause) && (
-				cause.code === "PUSH_SUBSCRIPTION_LIMIT_EXCEEDED" ||
-				cause.code === "PUSH_REGISTRATION_RATE_LIMITED" ||
-				cause.code === "PUSH_ENDPOINT_NOT_ALLOWED"
-			)) {
+				setError(
+					"別アカウントがこの端末の通知登録を利用しています。下のボタンから購読を作り直せます。",
+				);
+			} else if (
+				isApiClientError(cause) &&
+				(cause.code === "PUSH_SUBSCRIPTION_LIMIT_EXCEEDED" ||
+					cause.code === "PUSH_REGISTRATION_RATE_LIMITED" ||
+					cause.code === "PUSH_ENDPOINT_NOT_ALLOWED")
+			) {
 				setError(cause.message);
 			} else {
 				setError("通知を有効にできませんでした。もう一度お試しください。");

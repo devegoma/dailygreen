@@ -76,10 +76,17 @@ describe("Push Subscription入力", () => {
 	});
 
 	it("未知のHTTPSホストを個別の400エラーとして拒否する", () => {
-		expect(() => parsePushSubscriptionRequest({
-			...valid,
-			endpoint: "https://untrusted.example.test/subscription/abc",
-		})).toThrowError(expect.objectContaining({ code: "PUSH_ENDPOINT_NOT_ALLOWED", status: 400 }));
+		expect(() =>
+			parsePushSubscriptionRequest({
+				...valid,
+				endpoint: "https://untrusted.example.test/subscription/abc",
+			}),
+		).toThrowError(
+			expect.objectContaining({
+				code: "PUSH_ENDPOINT_NOT_ALLOWED",
+				status: 400,
+			}),
+		);
 	});
 
 	it("Date範囲外のexpirationTimeとbase64urlでない鍵を拒否する", () => {
@@ -108,6 +115,10 @@ describe("Subscription解除入力", () => {
 			parseDeletePushSubscriptionRequest({ endpoint, extra: true }),
 		);
 		// Allows authenticated cleanup of endpoints stored before allowlisting.
-		expect(parseDeletePushSubscriptionRequest({ endpoint: "https://old.example.test/a" })).toEqual({ endpoint: "https://old.example.test/a" });
+		expect(
+			parseDeletePushSubscriptionRequest({
+				endpoint: "https://old.example.test/a",
+			}),
+		).toEqual({ endpoint: "https://old.example.test/a" });
 	});
 });

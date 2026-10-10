@@ -176,7 +176,9 @@ describe("Push dispatch PostgreSQL integration", () => {
 			.select({ endpoint: pushSubscription.endpoint })
 			.from(pushSubscription)
 			.where(eq(pushSubscription.userId, targetUser));
-		expect(remaining).toEqual([{ endpoint: "https://fcm.googleapis.com/fcm/send/ok" }]);
+		expect(remaining).toEqual([
+			{ endpoint: "https://fcm.googleapis.com/fcm/send/ok" },
+		]);
 	});
 	it("DBに紛れた未許可endpointは送信せず理由を集計する", async () => {
 		const targetUser = await createUser("dispatch-unsafe");
@@ -258,5 +260,4 @@ describe("Push dispatch PostgreSQL integration", () => {
 			failedSubscriptions: 1,
 		});
 	});
-
 });

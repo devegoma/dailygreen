@@ -1,6 +1,11 @@
 import { and, count, eq } from "drizzle-orm";
 import { db } from "~/db/index.server";
-import { notificationSetting, pushRegistrationRateLimit, pushSubscription, user } from "~/db/schema";
+import {
+	notificationSetting,
+	pushRegistrationRateLimit,
+	pushSubscription,
+	user,
+} from "~/db/schema";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
 import { ApiError } from "~/lib/api/errors";
 import { env } from "~/lib/env.server";
@@ -109,7 +114,10 @@ function expirationDate(request: PushSubscriptionRequest): Date | null {
  * conflict, cap etc). Separate committed transaction avoids rolling back
  * the rate counter along with a failed registration.
  */
-async function consumePushRegistrationBudget(userId: string, now: Date): Promise<void> {
+async function consumePushRegistrationBudget(
+	userId: string,
+	now: Date,
+): Promise<void> {
 	await db.transaction(async (tx) => {
 		const lockedUser = await tx
 			.select({ id: user.id })
@@ -126,7 +134,11 @@ async function consumePushRegistrationBudget(userId: string, now: Date): Promise
 			.where(eq(pushRegistrationRateLimit.userId, userId))
 			.limit(1);
 
-		if (current && now.getTime() - current.windowStartedAt.getTime() < REGISTRATION_RATE_WINDOW_MS) {
+		if (
+			current &&
+			now.getTime() - current.windowStartedAt.getTime() <
+				REGISTRATION_RATE_WINDOW_MS
+		) {
 			if (current.attemptCount >= MAX_REGISTRATION_ATTEMPTS_PER_WINDOW) {
 				throw new ApiError("PUSH_REGISTRATION_RATE_LIMITED");
 			}
