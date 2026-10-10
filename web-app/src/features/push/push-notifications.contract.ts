@@ -1,4 +1,5 @@
 import { ApiError } from "~/lib/api/errors";
+import { pushEndpointRejectionReason } from "./push-endpoint";
 import type {
 	DeletePushSubscriptionRequest,
 	PushSubscriptionRequest,
@@ -22,12 +23,26 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 }
 
 function parseEndpoint(value: unknown): string {
+	const reason = pushEndpointRejectionReason(value);
+	if (reason === "invalid_url") {
+		return invalidRequest();
+	}
+	if (reason === "unsupported_host") {
+		throw new ApiError("PUSH_ENDPOINT_NOT_ALLOWED");
+	}
+	return value as string;
+}
+
+/**
+ * Removing a legacy subscription never performs network I/O. Allow deleting
+ * previously stored unapproved HTTPS endpoints by exact value.
+ */
+function parseDeletionEndpoint(value: unknown): string {
 	if (typeof value !== "string" || value.length === 0 || value.length > 4096) {
 		return invalidRequest();
 	}
 	try {
-		const url = new URL(value);
-		if (url.protocol !== "https:") {
+		if (new URL(value).protocol !== "https:") {
 			return invalidRequest();
 		}
 	} catch (error) {
@@ -133,5 +148,5 @@ export function parseDeletePushSubscriptionRequest(
 	) {
 		return invalidRequest();
 	}
-	return { endpoint: parseEndpoint(body.endpoint) };
+	return { endpoint: parseDeletionEndpoint(body.endpoint) };
 }
