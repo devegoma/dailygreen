@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type {
 	RequestOptions,
 	PushSubscription as WebPushSubscription,
@@ -12,10 +12,16 @@ import {
 	pushSubscription,
 } from "~/db/schema";
 import { toJstDateString, toJstTimeString } from "~/lib/api/date";
+import { pushEndpointRejectionReason } from "./push-endpoint";
 import { getPushRuntimeConfig } from "./push-runtime.server";
 
 const PUSH_DISPATCH_LOCK_ID = 1_144_750_163;
 const PUSH_TTL_SECONDS = 60 * 60;
+const PUSH_TIMEOUT_MS = 10_000;
+const PUSH_SEND_CONCURRENCY = 4;
+const MAX_CANDIDATES_PER_RUN = 100;
+const MAX_SUBSCRIPTIONS_PER_RUN = 20;
+const MAX_LEGACY_SUBSCRIPTIONS_PER_USER = 10;
 
 export type PushDispatchSummary = {
 	locked: boolean;
@@ -27,6 +33,10 @@ export type PushDispatchSummary = {
 	successfulSubscriptions: number;
 	failedSubscriptions: number;
 	removedInvalidSubscriptions: number;
+	skippedUnsafeSubscriptions: number;
+	truncatedLegacySubscriptions: number;
+	deferredByBudget: number;
+	scannedCandidateUsers: number;
 };
 
 type ClaimedSubscription = {
@@ -59,6 +69,10 @@ function emptySummary(): PushDispatchSummary {
 		successfulSubscriptions: 0,
 		failedSubscriptions: 0,
 		removedInvalidSubscriptions: 0,
+		skippedUnsafeSubscriptions: 0,
+		truncatedLegacySubscriptions: 0,
+		deferredByBudget: 0,
+		scannedCandidateUsers: 0,
 	};
 }
 
@@ -89,23 +103,43 @@ async function claimDueUsers(now: Date): Promise<{
 			};
 		}
 
-		const candidates = await tx
-			.select({ userId: notificationSetting.userId })
+		const dueCondition = and(
+			eq(notificationSetting.enabled, true),
+			lte(notificationSetting.notifyAt, currentTime),
+			or(
+				isNull(notificationSetting.lastNotifiedDate),
+				ne(notificationSetting.lastNotifiedDate, today),
+			),
+		);
+		const [total] = await tx
+			.select({ count: count() })
 			.from(notificationSetting)
-			.where(
-				and(
-					eq(notificationSetting.enabled, true),
-					lte(notificationSetting.notifyAt, currentTime),
-					or(
-						isNull(notificationSetting.lastNotifiedDate),
-						ne(notificationSetting.lastNotifiedDate, today),
-					),
-				),
-			);
+			.where(dueCondition);
 
 		const summary = emptySummary();
-		summary.candidateUsers = candidates.length;
+		summary.candidateUsers = total?.count ?? 0;
 		const claimedUsers: ClaimedUser[] = [];
+		if (summary.candidateUsers === 0) {
+			return { summary, claimedUsers };
+		}
+
+		// Rotate a bounded window each minute so long-lived ineligible users
+		// at the start of the index do not starve later subscribers.
+		const offset = (Math.floor(now.getTime() / 60_000) * MAX_CANDIDATES_PER_RUN)
+			% summary.candidateUsers;
+		const selectCandidates = (start: number, limit: number) =>
+			tx.select({ userId: notificationSetting.userId })
+				.from(notificationSetting)
+				.where(dueCondition)
+				.orderBy(notificationSetting.userId)
+				.offset(start)
+				.limit(limit);
+		const candidates = await selectCandidates(offset, MAX_CANDIDATES_PER_RUN);
+		if (candidates.length < MAX_CANDIDATES_PER_RUN && candidates.length < summary.candidateUsers) {
+			candidates.push(...await selectCandidates(0, MAX_CANDIDATES_PER_RUN - candidates.length));
+		}
+		summary.scannedCandidateUsers = candidates.length;
+		let reservedSubscriptions = 0;
 
 		for (const candidate of candidates) {
 			const activeHabits = await tx
@@ -137,6 +171,8 @@ async function claimDueUsers(now: Date): Promise<{
 				continue;
 			}
 
+			// Tolerate existing over-cap rows, only sending to the 10 most
+			// recently refreshed subscriptions. Admin cleanup is documented.
 			const subscriptions = await tx
 				.select({
 					id: pushSubscription.id,
@@ -146,10 +182,19 @@ async function claimDueUsers(now: Date): Promise<{
 					expirationTime: pushSubscription.expirationTime,
 				})
 				.from(pushSubscription)
-				.where(eq(pushSubscription.userId, candidate.userId));
+				.where(eq(pushSubscription.userId, candidate.userId))
+				.orderBy(desc(pushSubscription.updatedAt), desc(pushSubscription.id))
+				.limit(MAX_LEGACY_SUBSCRIPTIONS_PER_USER + 1);
 			if (subscriptions.length === 0) {
 				summary.skippedNoSubscriptions += 1;
 				continue;
+			}
+			if (reservedSubscriptions + Math.min(subscriptions.length, MAX_LEGACY_SUBSCRIPTIONS_PER_USER) > MAX_SUBSCRIPTIONS_PER_RUN) {
+				summary.deferredByBudget += 1;
+				break;
+			}
+			if (subscriptions.length > MAX_LEGACY_SUBSCRIPTIONS_PER_USER) {
+				summary.truncatedLegacySubscriptions += subscriptions.length - MAX_LEGACY_SUBSCRIPTIONS_PER_USER;
 			}
 
 			const claimed = await tx
@@ -170,7 +215,9 @@ async function claimDueUsers(now: Date): Promise<{
 				continue;
 			}
 
-			claimedUsers.push({ incompleteCount, subscriptions });
+			const selected = subscriptions.slice(0, MAX_LEGACY_SUBSCRIPTIONS_PER_USER);
+			claimedUsers.push({ incompleteCount, subscriptions: selected });
+			reservedSubscriptions += selected.length;
 			summary.claimedUsers += 1;
 		}
 
@@ -217,6 +264,7 @@ export async function dispatchPushNotifications(
 
 	const sendPush = options.sendPush ?? webPush.sendNotification.bind(webPush);
 	const requestOptions: RequestOptions = {
+		timeout: PUSH_TIMEOUT_MS,
 		TTL: PUSH_TTL_SECONDS,
 		urgency: "normal",
 		topic: "daily-green-reminder",
@@ -227,39 +275,57 @@ export async function dispatchPushNotifications(
 		},
 	};
 
-	for (const claimedUser of claimedUsers) {
+	const pending = claimedUsers.flatMap((claimedUser) => {
 		const payload = JSON.stringify({
 			title: "Daily Green",
 			body: `今日の習慣があと${claimedUser.incompleteCount}個残っています`,
 			url: "/",
 		});
+		return claimedUser.subscriptions.map((subscription) => ({ subscription, payload }));
+	});
 
-		for (const subscription of claimedUser.subscriptions) {
-			try {
-				await sendPush(
-					toWebPushSubscription(subscription),
-					payload,
-					requestOptions,
-				);
-				summary.successfulSubscriptions += 1;
-			} catch (error) {
-				if (isInvalidSubscriptionError(error)) {
-					await db
-						.delete(pushSubscription)
-						.where(eq(pushSubscription.id, subscription.id));
-					summary.removedInvalidSubscriptions += 1;
-					continue;
-				}
-				summary.failedSubscriptions += 1;
-				writeDispatchLog("warn", "subscription_failed", {
-					statusCode:
-						typeof error === "object" && error !== null && "statusCode" in error
-							? (error as { statusCode?: unknown }).statusCode
-							: undefined,
-				});
-			}
+	let nextIndex = 0;
+	const sendOne = async (entry: (typeof pending)[number]) => {
+		const { subscription, payload } = entry;
+		const reason = pushEndpointRejectionReason(subscription.endpoint);
+		if (reason !== null) {
+			summary.skippedUnsafeSubscriptions += 1;
+			writeDispatchLog("warn", "unsafe_endpoint_skipped", { reason });
+			return;
 		}
-	}
+		try {
+			await sendPush(toWebPushSubscription(subscription), payload, requestOptions);
+			summary.successfulSubscriptions += 1;
+		} catch (error) {
+			if (isInvalidSubscriptionError(error)) {
+				try {
+					await db.delete(pushSubscription).where(eq(pushSubscription.id, subscription.id));
+					summary.removedInvalidSubscriptions += 1;
+				} catch {
+					summary.failedSubscriptions += 1;
+					writeDispatchLog("warn", "invalid_subscription_cleanup_failed", {});
+				}
+				return;
+			}
+			summary.failedSubscriptions += 1;
+			const rawStatus = typeof error === "object" && error !== null && "statusCode" in error
+				? (error as { statusCode?: unknown }).statusCode : null;
+			writeDispatchLog("warn", "subscription_failed", {
+				statusCode: typeof rawStatus === "number" ? rawStatus : undefined,
+			});
+		}
+	};
+
+	const workers = Array.from(
+		{ length: Math.min(PUSH_SEND_CONCURRENCY, pending.length) },
+		async () => {
+			while (nextIndex < pending.length) {
+				const entry = pending[nextIndex++];
+				if (entry) await sendOne(entry);
+			}
+		},
+	);
+	await Promise.all(workers);
 
 	writeDispatchLog("info", "completed", {
 		...summary,
