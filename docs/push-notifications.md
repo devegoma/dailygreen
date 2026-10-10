@@ -210,3 +210,97 @@ v1ではqueueを導入しない。次のいずれかが現れたら再検討す�
 - retry / delivery保証がプロダクト要件になる
 
 その段階でworker processとqueueの分離を検討する。
+
+
+## 14. セキュリティ制約（Issue #124）
+
+### 購読 endpoint の許可条件
+
+購読登録APIの入口と、dispatchの**送信直前**に、同じ
+`pushEndpointRejectionReason()` を適用する。以前にDBへ入った値であっても
+未許可の送信先には接続しない。拒否時にはURLや購読鍵をログへ出さず、
+`skippedUnsafeSubscriptions` と `unsafe_endpoint_skipped.reason` を集計する。
+
+- Chrome / Chromium (FCM): `fcm.googleapis.com` のみ
+- Firefox (Mozilla Push): `updates.push.services.mozilla.com` のみ
+- Safari / iOS Web App (APNs): `*.push.apple.com`
+- Edge / Windows (WNS): `*.notify.windows.com`
+- その他のホストは既定で拒否。サブドメインは先頭のドット区切りを必須とし、偽装suffixは拒否する。
+
+いずれもHTTPS必須で、userinfo、URL fragment、非標準ポート、IPリテラル、
+localhost、WHATWG URLとして正規化前後で文字列の変化するURLを拒否する。
+特に `web-push@3.6.7` の送信処理は古い `url.parse` を使用するため、
+パーサの解釈違いを防ぐために正規化済み文字列のみ受け付ける。
+同ライブラリは `https.request` を直接使用しており、HTTP 3xx のLocationを
+追跡するコードはない（送信先から3xxが返れば失敗扱い）。
+
+根拠:
+- Apple WebKit: https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/
+- Microsoft WNSサーバー側許可ドメイン: https://learn.microsoft.com/en-us/windows/apps/develop/notifications/push-notifications/firewall-allowlist-config
+- FCM endpoint例 / web-push: https://github.com/web-push-libs/web-push
+- Mozilla Firefox: 実際の `updates.push.services.mozilla.com` 系 endpoint に合わせる
+
+**ブラウザ互換性の残件:** 単体テストでは上記形式のサンプルを通すが、
+実機で購読したendpointの照合はデプロイ前に Chrome/Edge/Firefox/Safari/iOS PWA
+それぞれ実施する。未確認ホストを理由なく広域許可するのではなく、
+公式情報・実機で再確認したうえでテストと許可リストに追加する。
+
+Docker bridge networkだけでは送信先の制限にならない。追加の防御層として
+ホスト側firewall、DNS／FQDN対応egress proxyなどを検討する。
+CDNなどの動的IPを固定IPルールに置き換えない。
+
+### 購読の所有権・上限・登録頻度
+
+- `push_subscription.endpoint` は全ユーザーで一意。同じ所有者だけ
+  `ON CONFLICT DO UPDATE ... WHERE "push_subscription"."userId" = ...` により鍵を更新可能。
+  他ユーザーの再登録は `PUSH_SUBSCRIPTION_CONFLICT` (HTTP 409)。所有権や鍵は変更しない。
+- ユーザー1人につき最大10件。新規登録の件数判定とINSERT/UPSERTは
+  PostgreSQLのユーザー行 `FOR UPDATE` により直列化する。10件保有していても
+  同じ所有者の同じendpoint更新は許可する。超過は
+  `PUSH_SUBSCRIPTION_LIMIT_EXCEEDED` (HTTP 409)。
+- 登録リクエストは認証ユーザーにつき**60秒間20回**。
+  `push_registration_rate_limit` テーブルで永続化してプロセス間でも共有する。
+  登録が409で失敗しても試行数をカウントするため、成功登録とは別transactionで
+  消費する。制限超過は `PUSH_REGISTRATION_RATE_LIMITED` (HTTP 429)。
+  不正なJSONなど登録処理に至らないリクエストは対象外であり、外側のWAF等も併用する。
+- 追加テーブルには `0005_push_registration_rate_limit.sql` を適用する。
+  **マイグレーションを実行してから新コードを起動すること。**
+
+同一端末のアカウント切替:
+1. ログアウト操作で、セッションが有効なうちにその端末のendpointだけをDELETEする。
+2. DELETEが失敗してもブラウザで `unsubscribe()` を試み、古いendpointを無効化してログアウトする。
+3. 別アカウントでログイン後、`subscribe()` で新しいendpointを登録する。
+4. 異常終了や別経路のログアウトで競合が残った場合も、UIの「この端末の登録を確認・更新する」から409を検知し、「この端末の通知登録を作り直す」で旧ブラウザ購読を破棄できる。
+   旧所有者のサーバー行は**移動しない**。Push Serviceの404/410で自動削除する。
+   旧所有者として再ログイン可能な場合はその端末の購読解除を先に行う。
+
+### dispatchの上限と障害隔離
+
+- `web-push` のsocket timeout: **10,000ms**。これは「応答全体に対する厳密な
+  wall-clock timeout」ではなくsocketのアイドルtimeout。
+- 同時送信: 最大 **4件**。1回のdispatchで送信予約は最大 **20件**。
+  DB内で処理する候補ユーザーは最大 **100人**で、1分ごとに開始位置を回し、
+  同じスキップ対象のユーザーが後続を恒久的に塞がないようにする。
+- 10件を超える既存ユーザーの購読は、更新の新しい10件まで送信対象にする。
+  超過は `truncatedLegacySubscriptions` で把握する。
+- 個別送信の失敗は他の送信に波及させず、404/410で無効Subscriptionを削除。
+  DB削除が失敗した場合も他の購読への送信を継続。
+- 通知対象をclaimした段階で `lastNotifiedDate` を更新する従来の
+  at-most-once方針は維持する。上限で未claimのユーザーは後続の分単位ジョブが担当する。
+  マルチインスタンスでの完全なスケジューラ実行時間保証・再試行queueは別途検討する。
+
+### 運用時の確認と復旧
+
+古い10件超過データを確認するSQL:
+
+```sql
+SELECT "userId", count(*) AS subscription_count
+FROM push_subscription
+GROUP BY "userId"
+HAVING count(*) > 10;
+```
+
+削除が必要なら、事前にバックアップと影響ユーザーを確認してから
+更新の古い順で不要な購読を整理する。すべて自動削除はしない。
+`skippedUnsafeSubscriptions`、`truncatedLegacySubscriptions`、
+`failedSubscriptions`、`durationMs` を継続監視する。
