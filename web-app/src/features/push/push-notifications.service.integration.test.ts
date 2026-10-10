@@ -25,7 +25,7 @@ async function insertUser(authenticatedUser: AuthenticatedUser) {
 	});
 }
 
-const endpoint = "https://push.example.test/subscription/shared";
+const endpoint = "https://fcm.googleapis.com/fcm/send/shared";
 
 function subscriptionBody(options: { p256dh?: string; auth?: string } = {}) {
 	return {
@@ -91,16 +91,21 @@ describe("Push notification PostgreSQL integration", () => {
 		});
 	});
 
-	it("同じendpointの再登録時は現在ユーザーへ所有権と鍵を移す", async () => {
+	it("他ユーザーのendpoint再登録は409で拒否し所有者も鍵も保持する", async () => {
 		await upsertPushSubscription({
 			user: firstUser,
 			body: subscriptionBody(),
 			now,
 		});
-		await upsertPushSubscription({
-			user: secondUser,
-			body: subscriptionBody({ p256dh: "public-key-b", auth: "auth-b" }),
-			now: new Date(now.getTime() + 1_000),
+		await expect(
+			upsertPushSubscription({
+				user: secondUser,
+				body: subscriptionBody({ p256dh: "public-key-b", auth: "auth-b" }),
+				now,
+			}),
+		).rejects.toMatchObject({
+			code: "PUSH_SUBSCRIPTION_CONFLICT",
+			status: 409,
 		});
 
 		const rows = await db
@@ -108,18 +113,132 @@ describe("Push notification PostgreSQL integration", () => {
 				userId: pushSubscription.userId,
 				p256dh: pushSubscription.p256dh,
 				auth: pushSubscription.auth,
-				expirationTime: pushSubscription.expirationTime,
 			})
 			.from(pushSubscription)
 			.where(eq(pushSubscription.endpoint, endpoint));
+		expect(rows).toEqual([
+			{
+				userId: firstUser.id,
+				p256dh: "public-key-a",
+				auth: "auth-a",
+			},
+		]);
+	});
 
+	it("同じ所有者の冪等な再登録では鍵だけ更新できる", async () => {
+		await upsertPushSubscription({
+			user: firstUser,
+			body: subscriptionBody(),
+			now,
+		});
+		await upsertPushSubscription({
+			user: firstUser,
+			body: subscriptionBody({ p256dh: "public-key-b", auth: "auth-b" }),
+			now: new Date(now.getTime() + 1_000),
+		});
+		const rows = await db
+			.select()
+			.from(pushSubscription)
+			.where(eq(pushSubscription.endpoint, endpoint));
 		expect(rows).toHaveLength(1);
-		expect(rows[0]).toEqual({
-			userId: secondUser.id,
+		expect(rows[0]).toMatchObject({
+			userId: firstUser.id,
 			p256dh: "public-key-b",
 			auth: "auth-b",
-			expirationTime: new Date(1_800_000_000_000),
 		});
+	});
+
+	it("10件を超えた新規登録は拒否し10件目の冪等登録は許可する", async () => {
+		for (let i = 0; i < 10; i += 1) {
+			await upsertPushSubscription({
+				user: firstUser,
+				body: {
+					...subscriptionBody(),
+					endpoint: `https://fcm.googleapis.com/fcm/send/cap-${i}`,
+				},
+				now,
+			});
+		}
+		await upsertPushSubscription({
+			user: firstUser,
+			body: {
+				...subscriptionBody({ auth: "new-secret" }),
+				endpoint: "https://fcm.googleapis.com/fcm/send/cap-0",
+			},
+			now,
+		});
+		await expect(
+			upsertPushSubscription({
+				user: firstUser,
+				body: {
+					...subscriptionBody(),
+					endpoint: "https://fcm.googleapis.com/fcm/send/eleventh",
+				},
+				now,
+			}),
+		).rejects.toMatchObject({
+			code: "PUSH_SUBSCRIPTION_LIMIT_EXCEEDED",
+			status: 409,
+		});
+
+		const rows = await db
+			.select()
+			.from(pushSubscription)
+			.where(eq(pushSubscription.userId, firstUser.id));
+		expect(rows).toHaveLength(10);
+	});
+
+	it("12件の同時登録でもDB行ロックで10件に収まる", async () => {
+		const outcomes = await Promise.allSettled(
+			Array.from({ length: 12 }, (_, i) =>
+				upsertPushSubscription({
+					user: firstUser,
+					body: {
+						...subscriptionBody(),
+						endpoint: `https://fcm.googleapis.com/fcm/send/concurrent-${i}`,
+					},
+					now,
+				}),
+			),
+		);
+		expect(
+			outcomes.filter((result) => result.status === "fulfilled"),
+		).toHaveLength(10);
+		expect(
+			outcomes.filter((result) => result.status === "rejected"),
+		).toHaveLength(2);
+		const rows = await db
+			.select()
+			.from(pushSubscription)
+			.where(eq(pushSubscription.userId, firstUser.id));
+		expect(rows).toHaveLength(10);
+	});
+
+	it("60秒間の21回目の登録試行は429、時間経過後は再登録できる", async () => {
+		for (let i = 0; i < 20; i += 1) {
+			await upsertPushSubscription({
+				user: firstUser,
+				body: subscriptionBody(),
+				now,
+			});
+		}
+		await expect(
+			upsertPushSubscription({
+				user: firstUser,
+				body: subscriptionBody(),
+				now,
+			}),
+		).rejects.toMatchObject({
+			code: "PUSH_REGISTRATION_RATE_LIMITED",
+			status: 429,
+		});
+		await expect(
+			upsertPushSubscription({
+				user: firstUser,
+				body: subscriptionBody(),
+				now: new Date(now.getTime() + 60_000),
+			}),
+		).resolves.toBeUndefined();
 	});
 
 	it("別ユーザーは解除できず、所有者の解除は冪等に成功する", async () => {

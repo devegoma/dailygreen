@@ -58,7 +58,7 @@ async function enableNotifications(userId: string, notifyAt = "20:00:00") {
 async function addSubscription(userId: string, suffix: string) {
 	await db.insert(pushSubscription).values({
 		userId,
-		endpoint: `https://push.example.test/${suffix}`,
+		endpoint: `https://fcm.googleapis.com/fcm/send/${suffix}`,
 		p256dh: `p256dh-${suffix}`,
 		auth: `auth-${suffix}`,
 		createdAt: now,
@@ -176,6 +176,88 @@ describe("Push dispatch PostgreSQL integration", () => {
 			.select({ endpoint: pushSubscription.endpoint })
 			.from(pushSubscription)
 			.where(eq(pushSubscription.userId, targetUser));
-		expect(remaining).toEqual([{ endpoint: "https://push.example.test/ok" }]);
+		expect(remaining).toEqual([
+			{ endpoint: "https://fcm.googleapis.com/fcm/send/ok" },
+		]);
+	});
+	it("DBに紛れた未許可endpointは送信せず理由を集計する", async () => {
+		const targetUser = await createUser("dispatch-unsafe");
+		await createHabit(targetUser, "A");
+		await enableNotifications(targetUser);
+		await addSubscription(targetUser, "safe");
+		await db.insert(pushSubscription).values({
+			userId: targetUser,
+			endpoint: "https://unsafe.example.test/private",
+			p256dh: "p256dh",
+			auth: "auth",
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		const delivered: string[] = [];
+		const summary = await dispatchPushNotifications({
+			now,
+			sendPush: async (subscription) => {
+				delivered.push(subscription.endpoint);
+				return {};
+			},
+		});
+		expect(delivered).toEqual(["https://fcm.googleapis.com/fcm/send/safe"]);
+		expect(summary).toMatchObject({
+			claimedUsers: 1,
+			successfulSubscriptions: 1,
+			skippedUnsafeSubscriptions: 1,
+		});
+	});
+
+	it("送信数20件と同時実行4件までに制限しタイムアウトを10秒に設定する", async () => {
+		for (let userIndex = 0; userIndex < 3; userIndex += 1) {
+			const userId = await createUser(`dispatch-budget-${userIndex}`);
+			await createHabit(userId, "A");
+			await enableNotifications(userId);
+			for (let index = 0; index < 10; index += 1) {
+				await addSubscription(userId, `budget-${userIndex}-${index}`);
+			}
+		}
+
+		let inFlight = 0;
+		let peak = 0;
+		const timeouts: number[] = [];
+		const summary = await dispatchPushNotifications({
+			now,
+			sendPush: async (_subscription, _payload, options) => {
+				timeouts.push(options.timeout ?? 0);
+				inFlight += 1;
+				peak = Math.max(peak, inFlight);
+				await new Promise((resolve) => setTimeout(resolve, 2));
+				inFlight -= 1;
+				return {};
+			},
+		});
+		expect(summary.claimedUsers).toBe(2);
+		expect(summary.successfulSubscriptions).toBe(20);
+		expect(summary.deferredByBudget).toBeGreaterThan(0);
+		expect(peak).toBeGreaterThan(1);
+		expect(peak).toBeLessThanOrEqual(4);
+		expect(timeouts).toEqual(Array.from({ length: 20 }, () => 10_000));
+	});
+
+	it("失敗した購読と他の購読の送信を隔離する", async () => {
+		const targetUser = await createUser("dispatch-failed");
+		await createHabit(targetUser, "A");
+		await enableNotifications(targetUser);
+		await addSubscription(targetUser, "fail");
+		await addSubscription(targetUser, "success");
+		const summary = await dispatchPushNotifications({
+			now,
+			sendPush: async (subscription) => {
+				if (subscription.endpoint.endsWith("/fail")) throw new Error("timeout");
+				return {};
+			},
+		});
+		expect(summary).toMatchObject({
+			successfulSubscriptions: 1,
+			failedSubscriptions: 1,
+		});
 	});
 });

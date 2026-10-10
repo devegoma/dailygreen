@@ -191,3 +191,21 @@ export const pushSubscription = pgTable(
 	},
 	(table) => [index("push_subscription_user_id_idx").on(table.userId)],
 );
+
+/**
+ * Durable registration attempt counters. User-row locking serializes updates
+ * across Node workers while retaining a single PostgreSQL dependency.
+ */
+export const pushRegistrationRateLimit = pgTable(
+	"push_registration_rate_limit",
+	{
+		userId: text("userId")
+			.primaryKey()
+			.references(() => user.id, { onDelete: "cascade" }),
+		windowStartedAt: timestamp("windowStartedAt", {
+			mode: "date",
+			withTimezone: true,
+		}).notNull(),
+		attemptCount: integer("attemptCount").notNull().default(0),
+	},
+);
