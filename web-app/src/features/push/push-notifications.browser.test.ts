@@ -54,9 +54,7 @@ function mockSupportedBrowser(unsubscribe: () => Promise<boolean>) {
 	const getRegistration = vi.fn().mockResolvedValue({
 		pushManager: { getSubscription: vi.fn().mockResolvedValue(subscription) },
 	});
-	vi.stubGlobal("isSecureContext", true);
-	vi.stubGlobal("PushManager", class {});
-	vi.stubGlobal("Notification", { permission: "granted" });
+	vi.stubGlobal("window", { isSecureContext: true, PushManager: class {}, Notification: { permission: "granted" } });
 	vi.stubGlobal("navigator", { serviceWorker: { getRegistration } });
 	return { subscription, getRegistration };
 }
