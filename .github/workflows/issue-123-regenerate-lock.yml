@@ -32,12 +32,13 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
-          for (const [name, version] of [['react-start', '1.168.60'], ['start-server-core', '1.169.39']]) {
-            const expected = `'@tanstack/${name}@${version}':`;
-            if (!lock.includes(expected)) throw new Error(`Missing patched package: ${expected}`);
-          }
-          for (const pattern of [/'@tanstack\\/react-start@1\\.168\\.(?:[0-5]?[0-9])(?:\\b|')/, /'@tanstack\\/start-server-core@1\\.169\\.(?:[0-2]?[0-9]|3[0-8])(?:\\b|')/]) {
-            if (pattern.test(lock)) throw new Error(`Vulnerable version remains: ${pattern}`);
+          const lines = lock.split(String.fromCharCode(10));
+          for (const [name, patchedVersion] of [['react-start', '1.168.60'], ['start-server-core', '1.169.39']]) {
+            const prefix = "  '@tanstack/" + name + "@";
+            const versions = lines.filter((line) => line.startsWith(prefix)).map((line) => line.slice(prefix.length).split("'")[0]);
+            if (versions.length !== 1 || versions[0] !== patchedVersion) {
+              throw new Error('Unexpected @tanstack/' + name + ' versions: ' + JSON.stringify(versions));
+            }
           }
           NODE
       - name: Commit generated lockfile
