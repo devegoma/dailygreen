@@ -36,6 +36,13 @@
 			"when": 1786764412637,
 			"tag": "0004_cuddly_marvel_zombies",
 			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1791612000000,
+			"tag": "0005_push_registration_rate_limit",
+			"breakpoints": true
 		}
 	]
 }
