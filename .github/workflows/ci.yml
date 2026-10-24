@@ -117,6 +117,8 @@ jobs:
         run: bash -n ../.github/server-smoke.sh
       - name: Validate Docker Compose
         working-directory: .
+        env:
+          VITE_GOOGLE_CLIENT_ID: ci-test-google-client-id
         run: |
           cp web-app/.env.example web-app/.env
           cp notification-scheduler/.env.example notification-scheduler/.env
