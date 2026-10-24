@@ -21,9 +21,11 @@ CMD ["pnpm", "dev", "--host"]
 
 # ビルド用ステージ
 FROM base AS build
+# ブラウザに公開するGoogle Client IDだけをビルド時に渡す（秘密値は渡さない）
+ARG VITE_GOOGLE_CLIENT_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm run build
+RUN : "${VITE_GOOGLE_CLIENT_ID:?VITE_GOOGLE_CLIENT_ID build arg is required}" && pnpm run build
 
 # 本番用依存関係のみ（runner でコピーするため）
 FROM base AS production-deps
