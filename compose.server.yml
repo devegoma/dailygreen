@@ -25,6 +25,8 @@ services:
       service: web
     build:
       target: runner
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:?Set VITE_GOOGLE_CLIENT_ID in web-app/.env}
     environment:
       PORT: 3000
     depends_on:
