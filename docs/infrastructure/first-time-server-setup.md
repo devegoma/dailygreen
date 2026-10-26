@@ -445,6 +445,21 @@ docker compose -f compose.server.yml --env-file web-app/.env exec db \
   sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
+## アプリの更新
+
+初回セットアップ後は、サーバー上で次を実行します。GitHub CLI (`gh`) のインストールと、このリポジトリのActions実行結果を読み取れる認証 (`gh auth login`) が必要です。`flock` はUbuntuの `util-linux` に含まれます。
+
+```bash
+cd ~/dailygreen
+bash scripts/deploy-server.sh
+```
+
+スクリプトは `origin/main` の先頭SHAを確認し、そのSHAに対するpushイベントの `ci.yml` の最新実行が完了・成功している場合だけ、そのコミットをfetchしてdetached HEADへ切り替えます。確認後にmainが更新されても、デプロイ対象のSHAは変えません。CIが未実行・実行中・失敗の場合や、GitHubへの問い合わせに失敗した場合は更新しません。
+
+続いて `compose.server.yml` と `web-app/.env` を指定して、構成検証 (`config --quiet`) と `up -d --build`、状態表示 (`ps -a`) を実行します。DBのhealthy確認とmigration成功後にWebを起動する順序はComposeの定義に従います。完了後は「10. 動作確認」の項目でアプリの応答を確認してください。自動ロールバックは行いません。
+
+追跡対象ファイルの変更や未追跡ファイルがある場合は停止します。Git ignoredの `.env` は維持します。同じcloneでの同時実行はロックで防ぎます。既存のサーバーへこのスクリプトを導入する際は、先にスクリプトを含むコミットを取得してください。`main` でもpush時のCIが実行されるworkflowが必要です。
+
 ## 障害時の切り戻し
 
 Tailscale SSH で接続できなくなった場合は、サーバーのローカルコンソールから `tailscale status`、`sudo systemctl status tailscaled`、tailnet の access policy を確認します。復旧のため一時的に通常の SSH を再度許可する場合は、ルーターで port forwarding せず、信頼できる LAN 内からだけ接続して作業完了後に `sudo ufw delete allow 22/tcp` で閉じます。
