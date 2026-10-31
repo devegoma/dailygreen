@@ -1,0 +1,20 @@
+# ER図プレビュー（ローカル用）
+scripts/*
+!scripts/deploy-server.sh
+!scripts/test-deploy-server.sh
+
+# Cursor（デバッグログ等）
+.cursor/
+
+# JetBrains IDE
+.idea/
+*.iml
+
+# notification-schedulerの内部job token
+notification-scheduler/.env
+
+# リバースプロキシ用証明書
+nginx/cert/
+
+# Cloudflare Tunnel token
+cloudflared.env

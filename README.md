@@ -1,2 +1,31 @@
 # dailygreen
-習慣化アプリ
+
+習慣化アプリ Daily Green。
+
+## 開発環境の起動
+
+PostgreSQL と Web アプリを Docker Compose で起動する場合、リポジトリルートで次を実行します。
+
+```bash
+docker compose -f compose.local.yml up -d
+# Webコンテナの初回 pnpm install が完了してから実行
+docker compose -f compose.local.yml exec web pnpm db:migrate
+```
+
+ローカル用 Compose では DB マイグレーションは自動実行されません。**初回起動時・新しいマイグレーションを含む変更の取り込み後・DBボリュームの再作成後**に `db:migrate` を実行してください。
+
+詳細は [web-app/README.md](web-app/README.md) を参照してください。
+
+## ドキュメント
+
+- [プロダクト定義](docs/spec.md)
+- [DB 設計](docs/db.md)
+- [API 設計](docs/api/README.md)
+- [UI 設計](docs/ui/README.md)
+- [Push通知 v1](docs/push-notifications.md)
+- [ソーシャルシェア v1](docs/social-share.md)
+- [運用設計](docs/operations.md)
+- [自宅サーバー構築手順](docs/infrastructure/first-time-server-setup.md)
+- [コーディング規約](docs/coding-conventions.md)
+
+現行の仕様は上記ドキュメントと `web-app/src` の実装を基準とします。Drizzle の過去 migration は履歴として保持し、現在のスキーマ定義は `web-app/src/db/schema.ts` を参照します。

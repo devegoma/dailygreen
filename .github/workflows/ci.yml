@@ -2,26 +2,178 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: web-app
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgresql://user:password@localhost:5432/dailygreen_test
+  BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-123456
+  BETTER_AUTH_URL: http://localhost:5173
+  GOOGLE_CLIENT_ID: test-google-client-id
+  GOOGLE_CLIENT_SECRET: test-google-client-secret
 
 jobs:
-  check:
-    name: Lint and Typecheck
+  lint-and-typecheck:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web-app
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
-          # packageManager フィールド（web-app/package.json）からバージョンを取得
           package_json_file: web-app/package.json
           run_install: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
-          cache: "pnpm"
+          node-version-file: web-app/.node-version
+          cache: pnpm
           cache-dependency-path: web-app/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check:ci
       - run: pnpm run typecheck
+
+  unit-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web-app/.node-version
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  migration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: dailygreen_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U user -d dailygreen_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web-app/.node-version
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run db:check
+      - run: pnpm run db:generate && git diff --exit-code -- drizzle
+      - run: pnpm run db:migrate
+      - run: pnpm run test:integration
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web-app/package.json
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web-app/.node-version
+          cache: pnpm
+          cache-dependency-path: web-app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - name: Check notification scheduler syntax
+        run: node --check ../notification-scheduler/index.mjs
+      - name: Check Push runtime smoke script syntax
+        run: bash -n ../scripts/verify-push-runtime.sh
+      - name: Check server smoke script syntax
+        run: bash -n ../.github/server-smoke.sh
+      - name: Test server deploy script
+        working-directory: .
+        run: |
+          bash -n scripts/deploy-server.sh scripts/test-deploy-server.sh
+          bash scripts/test-deploy-server.sh
+      - name: Validate Docker Compose
+        working-directory: .
+        env:
+          VITE_GOOGLE_CLIENT_ID: ci-test-google-client-id
+        run: |
+          cp web-app/.env.example web-app/.env
+          cp notification-scheduler/.env.example notification-scheduler/.env
+          docker compose -f compose.yml config --quiet
+          docker compose -f compose.local.yml config --quiet
+          CLOUDFLARED_ENV_FILE=/dev/null docker compose -f compose.server.yml config --quiet
+      - name: Run server runtime smoke test
+        working-directory: .
+        run: |
+          node <<'NODE' > web-app/.env
+          const webPush = require('./web-app/node_modules/web-push');
+          const keys = webPush.generateVAPIDKeys();
+          console.log('NODE_ENV=production');
+          console.log('DATABASE_URL=postgresql://user:password@localhost:5432/dailygreen');
+          console.log('BETTER_AUTH_SECRET=ci-only-secret-ci-only-secret-123456');
+          console.log('BETTER_AUTH_URL=https://ci.example.com');
+          console.log('GOOGLE_CLIENT_ID=test-google-client-id');
+          console.log('GOOGLE_CLIENT_SECRET=test-google-client-secret');
+          console.log('VITE_GOOGLE_CLIENT_ID=test-google-client-id');
+          console.log(`VAPID_PUBLIC_KEY=${keys.publicKey}`);
+          console.log(`VAPID_PRIVATE_KEY=${keys.privateKey}`);
+          console.log('VAPID_SUBJECT=mailto:ci@example.com');
+          console.log('INTERNAL_JOB_TOKEN=ci-internal-job-token-12345678901234567890');
+          console.log('APP_VERSION=ci');
+          NODE
+          cat > notification-scheduler/.env <<'EOF'
+          INTERNAL_JOB_TOKEN=ci-internal-job-token-12345678901234567890
+          SCHEDULER_INTERVAL_MS=1000
+          EOF
+          bash .github/server-smoke.sh
+      - name: Run Push runtime smoke check
+        working-directory: .
+        run: |
+          node <<'NODE' > web-app/.env
+          const webPush = require('./web-app/node_modules/web-push');
+          const keys = webPush.generateVAPIDKeys();
+          console.log('NODE_ENV=development');
+          console.log('DATABASE_URL=postgresql://user:password@localhost:5432/dailygreen');
+          console.log('BETTER_AUTH_SECRET=ci-only-secret-ci-only-secret-123456');
+          console.log('BETTER_AUTH_URL=http://localhost:5173');
+          console.log('GOOGLE_CLIENT_ID=test-google-client-id');
+          console.log('GOOGLE_CLIENT_SECRET=test-google-client-secret');
+          console.log('VITE_GOOGLE_CLIENT_ID=test-google-client-id');
+          console.log(`VAPID_PUBLIC_KEY=${keys.publicKey}`);
+          console.log(`VAPID_PRIVATE_KEY=${keys.privateKey}`);
+          console.log('VAPID_SUBJECT=mailto:ci@example.com');
+          console.log('INTERNAL_JOB_TOKEN=ci-internal-job-token-12345678901234567890');
+          console.log('APP_VERSION=ci');
+          NODE
+          cat > notification-scheduler/.env <<'EOF'
+          INTERNAL_JOB_TOKEN=ci-internal-job-token-12345678901234567890
+          EOF
+          env -u DATABASE_URL bash scripts/verify-push-runtime.sh

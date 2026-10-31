@@ -1,8 +1,7 @@
-# NOTE: ひとまず開発向けにこのDockerfileを作成しました。今後インフラへのデプロイに際しては適宜調整される想定です。
-
 # ベースイメージ
-FROM node:20.19-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+FROM node:26-alpine AS base
+ARG PNPM_VERSION=9.15.4
+RUN npm install --global pnpm@${PNPM_VERSION}
 WORKDIR /app
 
 # 依存関係のインストール（開発用も含む）
@@ -12,26 +11,42 @@ RUN pnpm install --frozen-lockfile
 
 # 開発用ステージ（docker-compose から target: dev で指定可能）
 FROM base AS dev
+ENV CI=true
+COPY docker-entrypoint-dev.sh /usr/local/bin/docker-entrypoint-dev.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-dev.sh
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENTRYPOINT ["docker-entrypoint-dev.sh"]
 CMD ["pnpm", "dev", "--host"]
 
 # ビルド用ステージ
 FROM base AS build
+# ブラウザに公開するGoogle Client IDだけをビルド時に渡す（秘密値は渡さない）
+ARG VITE_GOOGLE_CLIENT_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm run build
+RUN : "${VITE_GOOGLE_CLIENT_ID:?VITE_GOOGLE_CLIENT_ID build arg is required}" && pnpm run build
 
 # 本番用依存関係のみ（runner でコピーするため）
 FROM base AS production-deps
 COPY pnpm-lock.yaml package.json ./
 RUN pnpm install --prod --frozen-lockfile
 
+# DB migration専用ステージ
+FROM deps AS migrator
+COPY drizzle.config.ts ./drizzle.config.ts
+COPY drizzle ./drizzle
+COPY src/db ./src/db
+CMD ["pnpm", "run", "db:migrate"]
+
 # 本番用（実行）ステージ
 FROM base AS runner
 ENV NODE_ENV=production
-COPY --from=build /app/build ./build
+RUN addgroup --system --gid 1001 dailygreen && adduser --system --uid 1001 --ingroup dailygreen dailygreen
+COPY --from=build /app/.output ./.output
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=production-deps /app/node_modules ./node_modules
+RUN chown -R dailygreen:dailygreen /app
+USER dailygreen
 CMD ["pnpm", "run", "start"]

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Daily Green">
+  <rect width="512" height="512" rx="112" fill="#052e16"/>
+  <path d="M132 324c0-116 72-194 236-204-8 156-82 240-198 240-14 0-27-2-38-5 58-73 118-123 184-151-77 18-139 54-184 120Z" fill="#86efac"/>
+  <path d="M151 374c44-86 105-145 190-178" fill="none" stroke="#dcfce7" stroke-width="22" stroke-linecap="round"/>
+</svg>

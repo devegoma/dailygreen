@@ -1,0 +1,44 @@
+services:
+  db:
+    extends:
+      file: compose.yml
+      service: db
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  web:
+    extends:
+      file: compose.yml
+      service: web
+    build:
+      target: dev
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./web-app:/app
+      - web_node_modules:/app/node_modules
+
+  notification-scheduler:
+    extends:
+      file: compose.yml
+      service: notification-scheduler
+
+  reverse-proxy:
+    extends:
+      file: compose.yml
+      service: reverse-proxy
+    volumes:
+      - ./nginx/conf.d/development.conf:/etc/nginx/conf.d/default.conf:ro
+
+networks:
+  edge-network:
+    driver: bridge
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_data:
+  web_node_modules:

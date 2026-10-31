@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-dailygreen}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - db-network
+
+  web:
+    build:
+      context: ./web-app
+    env_file:
+      - ./web-app/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-dailygreen}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+      - db-network
+
+  notification-scheduler:
+    build:
+      context: ./notification-scheduler
+    env_file:
+      - ./notification-scheduler/.env
+    environment:
+      INTERNAL_JOB_URL: http://web:5173/internal/jobs/push-dispatch
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  reverse-proxy:
+    image: "nginx:1.29.6"
+    depends_on:
+      - web
+    networks:
+      - edge-network
+      - app-network
+
+networks:
+  edge-network:
+    driver: bridge
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_data:

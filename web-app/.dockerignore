@@ -1,6 +1,11 @@
 .react-router
+.output
 build
 node_modules
+.pnpm-store
+.vite
+.cache
+.biome_cache
 README.md
 .git
 .github
