@@ -60,6 +60,14 @@ web_id="$("${compose[@]}" ps -q web)"
 [[ -n "$web_id" ]] || fail "web containerが起動していません"
 [[ "$(docker inspect --format '{{.Config.User}}' "$web_id")" == "dailygreen" ]] || fail "web containerがrunner targetではありません"
 
+log "公開Google Client IDがブラウザ配信用assetsへ埋め込まれていることを確認します"
+if ! "${compose[@]}" exec -T web sh -c '
+  test -n "$VITE_GOOGLE_CLIENT_ID" &&
+  grep -R -F -q -- "$VITE_GOOGLE_CLIENT_ID" /app/.output/public
+'; then
+  fail "VITE_GOOGLE_CLIENT_IDがブラウザ配信用assetsに見つかりません"
+fi
+
 log "Nginxからwebへのproxyを確認します"
 nginx_ok=0
 for _ in $(seq 1 30); do

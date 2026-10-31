@@ -220,14 +220,14 @@ INTERNAL_JOB_TOKEN=<生成された値>
 
 Windows 側の `.env` には、少なくとも次の値が設定されていることを確認します。
 
-- `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`、OAuth 関連、`VAPID_*`、`INTERNAL_JOB_TOKEN`、`APP_VERSION`
+- `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`VITE_GOOGLE_CLIENT_ID`、`VAPID_*`、`INTERNAL_JOB_TOKEN`、`APP_VERSION`（`VITE_GOOGLE_CLIENT_ID` は `GOOGLE_CLIENT_ID` と同じ公開値）
 - `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`（下記の `--env-file` で Compose の変数として読み込ませる値）
 
 `notification-scheduler/.env` には、`web-app/.env` と同じ `INTERNAL_JOB_TOKEN` を設定します。
 
 `BETTER_AUTH_SECRET` と `INTERNAL_JOB_TOKEN` は32文字以上のランダム値にします。`POSTGRES_PASSWORD` など Compose のデフォルト値も、本番では必ず変更してください。`.env` の権限と Git の追跡状態を確認します。
 
-サーバー用の `compose.server.yml` はリポジトリルートの `.env` またはシェル環境変数を通常の変数置換元として使用します。今回は `.env` を `web-app/.env` に置くため、Compose 実行時に `-f compose.server.yml --env-file web-app/.env` を指定します。`web-app/.env` の `DATABASE_URL` は Compose 内の `web` サービス設定で上書きされ、コンテナ間接続の `db:5432` が使用されます。
+サーバー用の `compose.server.yml` はリポジトリルートの `.env` またはシェル環境変数を通常の変数置換元として使用します。今回は `.env` を `web-app/.env` に置くため、Compose 実行時に `-f compose.server.yml --env-file web-app/.env` を指定します。`VITE_GOOGLE_CLIENT_ID` は公開値として `web` のDockerビルド引数に渡され、ブラウザ用bundleへ埋め込まれます。値の変更を反映するには `web` の再ビルドが必要です。`web-app/.env` の `DATABASE_URL` は Compose 内の `web` サービス設定で上書きされ、コンテナ間接続の `db:5432` が使用されます。
 
 Windows 側で、コピー対象の秘密ファイルが存在し、Gitへ登録されていないことを確認します。
 
