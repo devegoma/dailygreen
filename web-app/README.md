@@ -33,7 +33,11 @@ pnpm run db:studio     # Drizzle Studio
 
 ```bash
 docker compose -f compose.local.yml up -d
+# Webコンテナの初回 pnpm install が完了してから実行
+docker compose -f compose.local.yml exec web pnpm db:migrate
 ```
+
+ローカル用 Compose ではマイグレーションは自動実行されません。**初回起動時・新しいマイグレーションを含む変更の取り込み後・DBボリュームの再作成後**に実行してください。上記のコマンドは `web` コンテナ内から `db:5432` に接続するため、ホスト側の `DATABASE_URL` の設定に依存しません。
 
 - アプリ: `http://localhost:5173`
 - DB（ホストから）: `localhost:5432`
@@ -45,21 +49,16 @@ docker compose -f compose.local.yml logs -f db web
 docker compose -f compose.local.yml down
 ```
 
-DB を含め Volume を消してやり直す場合:
+DB を含め Volume を消してやり直す場合（**保存済みのDBデータが削除されます**）:
 
 ```bash
 docker compose -f compose.local.yml down -v
 docker compose -f compose.local.yml up -d
+# Webコンテナの初回 pnpm install が完了してから実行
+docker compose -f compose.local.yml exec web pnpm db:migrate
 ```
 
-マイグレーションは自動では走りません。`docker compose -f compose.local.yml up -d` 後、`web-app` で:
-
-```bash
-cd web-app
-pnpm db:migrate
-```
-
-（ホストから `migrate` するなら `.env` の `DATABASE_URL` は `localhost` 向けに）
+ホストから直接マイグレーションを実行する場合は、`web-app` ディレクトリで `pnpm db:migrate` を実行します。その際、`.env` の `DATABASE_URL` は `localhost:5432` 向けにしてください。
 
 ## 認証（Better Auth）
 

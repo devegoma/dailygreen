@@ -8,7 +8,11 @@ PostgreSQL と Web アプリを Docker Compose で起動する場合、リポジ
 
 ```bash
 docker compose -f compose.local.yml up -d
+# Webコンテナの初回 pnpm install が完了してから実行
+docker compose -f compose.local.yml exec web pnpm db:migrate
 ```
+
+ローカル用 Compose では DB マイグレーションは自動実行されません。**初回起動時・新しいマイグレーションを含む変更の取り込み後・DBボリュームの再作成後**に `db:migrate` を実行してください。
 
 詳細は [web-app/README.md](web-app/README.md) を参照してください。
 
