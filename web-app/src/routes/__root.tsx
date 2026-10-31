@@ -24,7 +24,13 @@ export const Route = createRootRouteWithContext<{
 		links: [
 			{ rel: "stylesheet", href: appCss },
 			{ rel: "manifest", href: "/manifest.webmanifest" },
-			{ rel: "icon", href: "/app-icon.svg", type: "image/svg+xml" },
+			{ rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+			{
+				rel: "icon",
+				href: "/app-icon.svg",
+				type: "image/svg+xml",
+				sizes: "any",
+			},
 			{ rel: "preconnect", href: "https://fonts.googleapis.com" },
 			{
 				rel: "preconnect",
