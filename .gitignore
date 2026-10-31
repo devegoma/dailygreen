@@ -1,5 +1,7 @@
 # ER図プレビュー（ローカル用）
-scripts/
+scripts/*
+!scripts/deploy-server.sh
+!scripts/test-deploy-server.sh
 
 # Cursor（デバッグログ等）
 .cursor/
