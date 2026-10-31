@@ -7,6 +7,7 @@ import {
 	registerPushSubscription,
 	releaseCurrentDevicePushSubscription,
 	serializePushSubscription,
+	unregisterPushSubscription,
 	updateNotificationSettings,
 	urlBase64ToUint8Array,
 } from "./push-notifications.browser";
@@ -69,6 +70,36 @@ export function NotificationSettingsCard({
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [needsRecovery, setNeedsRecovery] = useState(false);
+	// Keep failed compensation available for retry without touching an older
+	// subscription. Never persist endpoint/key material in browser storage.
+	const [pendingRollback, setPendingRollback] = useState<{
+		subscription: PushSubscription;
+		server: boolean;
+	} | null>(null);
+
+	async function rollbackSubscription(
+		subscription: PushSubscription,
+		server: boolean,
+	): Promise<boolean> {
+		const [remote, local] = await Promise.allSettled([
+			server
+				? unregisterPushSubscription(
+						{ endpoint: subscription.endpoint },
+						AbortSignal.timeout(4_000),
+					)
+				: Promise.resolve(),
+			Promise.resolve().then(() => subscription.unsubscribe()),
+		]);
+		const failed = remote.status === "rejected" || local.status === "rejected";
+		setPendingRollback(
+			failed
+				? { subscription, server: server && remote.status === "rejected" }
+				: null,
+		);
+		// unsubscribe() returning false also means there is no subscription.
+		setDeviceSubscribed(local.status === "rejected");
+		return !failed;
+	}
 
 	useEffect(() => {
 		let active = true;
@@ -115,8 +146,20 @@ export function NotificationSettingsCard({
 		setError(null);
 		setMessage(null);
 		let createdSubscription: PushSubscription | null = null;
+		let registrationAttempted = false;
+		let rollbackFailed = false;
 
 		try {
+			if (
+				pendingRollback &&
+				!(await rollbackSubscription(
+					pendingRollback.subscription,
+					pendingRollback.server,
+				))
+			) {
+				rollbackFailed = true;
+				throw new Error("Push subscription rollback is still pending");
+			}
 			if (resetExisting) {
 				// A prior account may own the existing endpoint. Revoking the
 				// browser subscription forces a fresh endpoint without moving ownership.
@@ -130,7 +173,10 @@ export function NotificationSettingsCard({
 				settings.vapidPublicKey,
 			);
 			if (created) createdSubscription = subscription;
-			await registerPushSubscription(serializePushSubscription(subscription));
+			const serialized = serializePushSubscription(subscription);
+			// A lost PUT response may still have committed on the server.
+			registrationAttempted = true;
+			await registerPushSubscription(serialized);
 
 			let nextSettings = settings;
 			if (enableReminder && !settings.enabled) {
@@ -147,8 +193,10 @@ export function NotificationSettingsCard({
 			);
 		} catch (cause) {
 			if (createdSubscription) {
-				await createdSubscription.unsubscribe().catch(() => false);
-				setDeviceSubscribed(false);
+				rollbackFailed = !(await rollbackSubscription(
+					createdSubscription,
+					registrationAttempted,
+				));
 			}
 			if (cause instanceof DOMException && cause.name === "NotAllowedError") {
 				setError(
@@ -173,6 +221,11 @@ export function NotificationSettingsCard({
 				setError(cause.message);
 			} else {
 				setError("通知を有効にできませんでした。もう一度お試しください。");
+			}
+			if (rollbackFailed) {
+				setMessage(
+					"通知登録の後片付けが完了していません。接続を確認してもう一度登録すると解除を再試行します。解消しない場合は再ログインして通知設定をご確認ください。",
+				);
 			}
 		} finally {
 			setIsBusy(false);

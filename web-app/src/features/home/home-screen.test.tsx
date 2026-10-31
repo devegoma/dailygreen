@@ -27,6 +27,9 @@ let sessionState: ReturnType<typeof makeSessionState>;
 beforeEach(() => {
 	sessionState = makeSessionState();
 	authMocks.useSession.mockImplementation(() => sessionState);
+	// Local VITE_GOOGLE_CLIENT_ID may enable the login effect during logout.
+	// Match the Promise contract even when no One Tap callback is needed.
+	authMocks.oneTap.mockResolvedValue(undefined);
 	authMocks.refetchSession.mockResolvedValue(undefined);
 	authMocks.signOut.mockResolvedValue({ data: null, error: null });
 	vi.stubGlobal("fetch", fetchMock.mockResolvedValue(jsonResponse(homeData())));

@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "~/db/index.server";
 import {
 	notificationSetting,
@@ -18,6 +18,7 @@ import {
 	parsePushSubscriptionRequest,
 	parseUpdateNotificationSettingsRequest,
 } from "./push-notifications.contract";
+import { getEligiblePushSubscriptions } from "./push-subscriptions.server";
 
 const DEFAULT_NOTIFY_AT = "20:00";
 export const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10;
@@ -191,11 +192,12 @@ export async function upsertPushSubscription(input: {
 		}
 
 		if (!existing) {
-			const [total] = await tx
-				.select({ count: count() })
-				.from(pushSubscription)
-				.where(eq(pushSubscription.userId, input.user.id));
-			if ((total?.count ?? 0) >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
+			const { subscriptions } = await getEligiblePushSubscriptions(
+				tx,
+				input.user.id,
+				MAX_PUSH_SUBSCRIPTIONS_PER_USER,
+			);
+			if (subscriptions.length >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
 				throw new ApiError("PUSH_SUBSCRIPTION_LIMIT_EXCEEDED");
 			}
 		}

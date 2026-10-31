@@ -214,6 +214,50 @@ describe("Push notification PostgreSQL integration", () => {
 		expect(rows).toHaveLength(10);
 	});
 
+	it("未許可の既存購読を保持したまま、並列登録でも有効な購読だけ10件に制限する", async () => {
+		await db.insert(pushSubscription).values(
+			Array.from({ length: 105 }, (_, index) => ({
+				userId: firstUser.id,
+				endpoint: `https://unknown.example.test/legacy-${index}`,
+				p256dh: "legacy-key",
+				auth: "legacy-auth",
+				createdAt: now,
+				updatedAt: new Date(now.getTime() + 1000),
+			})),
+		);
+		const outcomes = await Promise.allSettled(
+			Array.from({ length: 12 }, (_, index) =>
+				upsertPushSubscription({
+					user: firstUser,
+					now,
+					body: {
+						...subscriptionBody(),
+						endpoint: `https://fcm.googleapis.com/fcm/send/eligible-${index}`,
+					},
+				}),
+			),
+		);
+		expect(
+			outcomes.filter((outcome) => outcome.status === "fulfilled"),
+		).toHaveLength(10);
+		for (const outcome of outcomes) {
+			if (outcome.status === "rejected")
+				expect(outcome.reason).toMatchObject({
+					code: "PUSH_SUBSCRIPTION_LIMIT_EXCEEDED",
+				});
+		}
+		const rows = await db
+			.select()
+			.from(pushSubscription)
+			.where(eq(pushSubscription.userId, firstUser.id));
+		expect(rows).toHaveLength(115);
+		expect(
+			rows.filter((row) =>
+				row.endpoint.startsWith("https://unknown.example.test/"),
+			),
+		).toHaveLength(105);
+	});
+
 	it("60秒間の21回目の登録試行は429、時間経過後は再登録できる", async () => {
 		for (let i = 0; i < 20; i += 1) {
 			await upsertPushSubscription({
