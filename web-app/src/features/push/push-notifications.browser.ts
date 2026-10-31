@@ -1,4 +1,9 @@
 import { ApiClientError, requestJson } from "~/lib/api/client";
+import {
+	type ApiErrorCode,
+	apiErrorMessages,
+	apiErrorStatuses,
+} from "~/lib/api/errors";
 import type {
 	DeletePushSubscriptionRequest,
 	NotificationSettingsResponse,
@@ -69,10 +74,25 @@ async function requestNoContent(
 	}
 
 	if (!response.ok) {
-		throw new ApiClientError("通知設定の更新に失敗しました。", {
-			status: response.status,
-			requestId: response.headers.get("x-request-id"),
-		});
+		// Preserve the typed code for 409 ownership/limit and 429 rate errors.
+		// Never trust or show arbitrary response text containing subscription data.
+		const body: unknown = await response.json().catch(() => null);
+		const rawCode =
+			typeof body === "object" && body !== null && "code" in body
+				? body.code
+				: null;
+		const code: ApiErrorCode | null =
+			typeof rawCode === "string" && Object.hasOwn(apiErrorStatuses, rawCode)
+				? (rawCode as ApiErrorCode)
+				: null;
+		throw new ApiClientError(
+			code ? apiErrorMessages[code] : "通知設定の更新に失敗しました。",
+			{
+				status: response.status,
+				code,
+				requestId: response.headers.get("x-request-id"),
+			},
+		);
 	}
 }
 
@@ -102,10 +122,32 @@ export function registerPushSubscription(
 
 export function unregisterPushSubscription(
 	body: DeletePushSubscriptionRequest,
+	signal?: AbortSignal,
 ): Promise<void> {
 	return requestNoContent(NOTIFICATION_API_PATH, {
 		method: "DELETE",
+		signal,
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify(body),
 	});
+}
+
+/**
+ * Revoke only this browser's subscription while still authenticated.
+ * Always unsubscribe locally, including when the API is temporarily unreachable.
+ * A failed API DELETE leaves a stale record until 404/410 cleanup.
+ */
+export async function releaseCurrentDevicePushSubscription(): Promise<void> {
+	if (!isPushSupported()) return;
+	const registration = await navigator.serviceWorker.getRegistration();
+	const subscription = await registration?.pushManager.getSubscription();
+	if (!subscription) return;
+	try {
+		await unregisterPushSubscription(
+			{ endpoint: subscription.endpoint },
+			AbortSignal.timeout(4_000),
+		);
+	} finally {
+		await subscription.unsubscribe();
+	}
 }

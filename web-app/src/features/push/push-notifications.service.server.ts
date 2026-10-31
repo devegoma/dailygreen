@@ -1,7 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "~/db/index.server";
-import { notificationSetting, pushSubscription } from "~/db/schema";
+import {
+	notificationSetting,
+	pushRegistrationRateLimit,
+	pushSubscription,
+	user,
+} from "~/db/schema";
 import type { AuthenticatedUser } from "~/lib/api/auth.server";
+import { ApiError } from "~/lib/api/errors";
 import { env } from "~/lib/env.server";
 import type {
 	NotificationSettingsResponse,
@@ -12,8 +18,12 @@ import {
 	parsePushSubscriptionRequest,
 	parseUpdateNotificationSettingsRequest,
 } from "./push-notifications.contract";
+import { getEligiblePushSubscriptions } from "./push-subscriptions.server";
 
 const DEFAULT_NOTIFY_AT = "20:00";
+export const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10;
+const REGISTRATION_RATE_WINDOW_MS = 60_000;
+const MAX_REGISTRATION_ATTEMPTS_PER_WINDOW = 20;
 
 function normalizeNotifyAt(value: string): string {
 	return value.slice(0, 5);
@@ -100,6 +110,55 @@ function expirationDate(request: PushSubscriptionRequest): Date | null {
 	return new Date(request.expirationTime);
 }
 
+/**
+ * Count attempts even if the subsequent registration is rejected (ownership
+ * conflict, cap etc). Separate committed transaction avoids rolling back
+ * the rate counter along with a failed registration.
+ */
+async function consumePushRegistrationBudget(
+	userId: string,
+	now: Date,
+): Promise<void> {
+	await db.transaction(async (tx) => {
+		const lockedUser = await tx
+			.select({ id: user.id })
+			.from(user)
+			.where(eq(user.id, userId))
+			.for("update");
+		if (lockedUser.length === 0) {
+			throw new ApiError("UNAUTHORIZED");
+		}
+
+		const [current] = await tx
+			.select()
+			.from(pushRegistrationRateLimit)
+			.where(eq(pushRegistrationRateLimit.userId, userId))
+			.limit(1);
+
+		if (
+			current &&
+			now.getTime() - current.windowStartedAt.getTime() <
+				REGISTRATION_RATE_WINDOW_MS
+		) {
+			if (current.attemptCount >= MAX_REGISTRATION_ATTEMPTS_PER_WINDOW) {
+				throw new ApiError("PUSH_REGISTRATION_RATE_LIMITED");
+			}
+			await tx
+				.update(pushRegistrationRateLimit)
+				.set({ attemptCount: current.attemptCount + 1 })
+				.where(eq(pushRegistrationRateLimit.userId, userId));
+		} else {
+			await tx
+				.insert(pushRegistrationRateLimit)
+				.values({ userId, windowStartedAt: now, attemptCount: 1 })
+				.onConflictDoUpdate({
+					target: pushRegistrationRateLimit.userId,
+					set: { windowStartedAt: now, attemptCount: 1 },
+				});
+		}
+	});
+}
+
 export async function upsertPushSubscription(input: {
 	user: AuthenticatedUser;
 	body: unknown;
@@ -108,27 +167,69 @@ export async function upsertPushSubscription(input: {
 	const request = parsePushSubscriptionRequest(input.body);
 	const now = input.now ?? new Date();
 
-	await db
-		.insert(pushSubscription)
-		.values({
-			userId: input.user.id,
-			endpoint: request.endpoint,
-			p256dh: request.keys.p256dh,
-			auth: request.keys.auth,
-			expirationTime: expirationDate(request),
-			createdAt: now,
-			updatedAt: now,
-		})
-		.onConflictDoUpdate({
-			target: pushSubscription.endpoint,
-			set: {
+	await consumePushRegistrationBudget(input.user.id, now);
+
+	await db.transaction(async (tx) => {
+		// Serializes count+insert even for concurrent requests on different
+		// endpoints. The user row always exists for authenticated users.
+		const lockedUser = await tx
+			.select({ id: user.id })
+			.from(user)
+			.where(eq(user.id, input.user.id))
+			.for("update");
+		if (lockedUser.length === 0) {
+			throw new ApiError("UNAUTHORIZED");
+		}
+
+		const [existing] = await tx
+			.select({ userId: pushSubscription.userId })
+			.from(pushSubscription)
+			.where(eq(pushSubscription.endpoint, request.endpoint))
+			.limit(1);
+
+		if (existing && existing.userId !== input.user.id) {
+			throw new ApiError("PUSH_SUBSCRIPTION_CONFLICT");
+		}
+
+		if (!existing) {
+			const { subscriptions } = await getEligiblePushSubscriptions(
+				tx,
+				input.user.id,
+				MAX_PUSH_SUBSCRIPTIONS_PER_USER,
+			);
+			if (subscriptions.length >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
+				throw new ApiError("PUSH_SUBSCRIPTION_LIMIT_EXCEEDED");
+			}
+		}
+
+		const updated = await tx
+			.insert(pushSubscription)
+			.values({
 				userId: input.user.id,
+				endpoint: request.endpoint,
 				p256dh: request.keys.p256dh,
 				auth: request.keys.auth,
 				expirationTime: expirationDate(request),
+				createdAt: now,
 				updatedAt: now,
-			},
-		});
+			})
+			.onConflictDoUpdate({
+				target: pushSubscription.endpoint,
+				// Never update userId, and verify the existing owner atomically.
+				set: {
+					p256dh: request.keys.p256dh,
+					auth: request.keys.auth,
+					expirationTime: expirationDate(request),
+					updatedAt: now,
+				},
+				setWhere: eq(pushSubscription.userId, input.user.id),
+			})
+			.returning({ id: pushSubscription.id });
+		// Another user may have inserted this endpoint after the SELECT.
+		if (updated.length === 0) {
+			throw new ApiError("PUSH_SUBSCRIPTION_CONFLICT");
+		}
+	});
 }
 
 export async function deletePushSubscription(input: {

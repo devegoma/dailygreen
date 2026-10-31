@@ -39,7 +39,7 @@ describe("通知設定入力", () => {
 
 describe("Push Subscription入力", () => {
 	const valid = {
-		endpoint: "https://push.example.test/subscription/abc",
+		endpoint: "https://fcm.googleapis.com/fcm/send/abc",
 		expirationTime: null,
 		keys: { p256dh: "public-key", auth: "auth-secret" },
 	};
@@ -61,7 +61,7 @@ describe("Push Subscription入力", () => {
 		expectInvalid(() =>
 			parsePushSubscriptionRequest({
 				...valid,
-				endpoint: "http://push.example.test/subscription/abc",
+				endpoint: "http://fcm.googleapis.com/fcm/send/abc",
 			}),
 		);
 		expectInvalid(() =>
@@ -71,6 +71,20 @@ describe("Push Subscription入力", () => {
 			parsePushSubscriptionRequest({
 				...valid,
 				keys: { p256dh: "public-key" },
+			}),
+		);
+	});
+
+	it("未知のHTTPSホストを個別の400エラーとして拒否する", () => {
+		expect(() =>
+			parsePushSubscriptionRequest({
+				...valid,
+				endpoint: "https://untrusted.example.test/subscription/abc",
+			}),
+		).toThrowError(
+			expect.objectContaining({
+				code: "PUSH_ENDPOINT_NOT_ALLOWED",
+				status: 400,
 			}),
 		);
 	});
@@ -93,12 +107,18 @@ describe("Push Subscription入力", () => {
 
 describe("Subscription解除入力", () => {
 	it("HTTPS endpointだけを受け付ける", () => {
-		const endpoint = "https://push.example.test/subscription/abc";
+		const endpoint = "https://fcm.googleapis.com/fcm/send/abc";
 		expect(parseDeletePushSubscriptionRequest({ endpoint })).toEqual({
 			endpoint,
 		});
 		expectInvalid(() =>
 			parseDeletePushSubscriptionRequest({ endpoint, extra: true }),
 		);
+		// Allows authenticated cleanup of endpoints stored before allowlisting.
+		expect(
+			parseDeletePushSubscriptionRequest({
+				endpoint: "https://old.example.test/a",
+			}),
+		).toEqual({ endpoint: "https://old.example.test/a" });
 	});
 });

@@ -1,5 +1,6 @@
 const DEFAULT_INTERVAL_MS = 60_000;
-const DEFAULT_TIMEOUT_MS = 30_000;
+// Server deadline: 65s, including 5s claiming and five 10s send waves.
+const DEFAULT_TIMEOUT_MS = 75_000;
 
 function requiredEnv(name) {
 	const value = process.env[name]?.trim();
@@ -43,6 +44,9 @@ const intervalMs = parsePositiveInteger(
 	DEFAULT_INTERVAL_MS,
 );
 const timeoutMs = parsePositiveInteger("SCHEDULER_TIMEOUT_MS", DEFAULT_TIMEOUT_MS);
+if (timeoutMs < DEFAULT_TIMEOUT_MS) {
+	throw new Error("SCHEDULER_TIMEOUT_MS must be at least 75000");
+}
 
 let stopping = false;
 let timer;
@@ -60,11 +64,9 @@ async function dispatch() {
 		});
 
 		if (!response.ok) {
-			const body = (await response.text()).slice(0, 512);
 			log("error", "push_scheduler_dispatch_failed", {
 				status: response.status,
 				durationMs: Date.now() - startedAt,
-				responseBody: body,
 			});
 			return;
 		}

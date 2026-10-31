@@ -5,6 +5,7 @@ import {
 	getNotificationSettings,
 	isPushSupported,
 	registerPushSubscription,
+	releaseCurrentDevicePushSubscription,
 	serializePushSubscription,
 	unregisterPushSubscription,
 	updateNotificationSettings,
@@ -68,6 +69,37 @@ export function NotificationSettingsCard({
 	const [isBusy, setIsBusy] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [needsRecovery, setNeedsRecovery] = useState(false);
+	// Keep failed compensation available for retry without touching an older
+	// subscription. Never persist endpoint/key material in browser storage.
+	const [pendingRollback, setPendingRollback] = useState<{
+		subscription: PushSubscription;
+		server: boolean;
+	} | null>(null);
+
+	async function rollbackSubscription(
+		subscription: PushSubscription,
+		server: boolean,
+	): Promise<boolean> {
+		const [remote, local] = await Promise.allSettled([
+			server
+				? unregisterPushSubscription(
+						{ endpoint: subscription.endpoint },
+						AbortSignal.timeout(4_000),
+					)
+				: Promise.resolve(),
+			Promise.resolve().then(() => subscription.unsubscribe()),
+		]);
+		const failed = remote.status === "rejected" || local.status === "rejected";
+		setPendingRollback(
+			failed
+				? { subscription, server: server && remote.status === "rejected" }
+				: null,
+		);
+		// unsubscribe() returning false also means there is no subscription.
+		setDeviceSubscribed(local.status === "rejected");
+		return !failed;
+	}
 
 	useEffect(() => {
 		let active = true;
@@ -105,19 +137,46 @@ export function NotificationSettingsCard({
 		};
 	}, [onUnauthorized]);
 
-	async function handleSubscribe(enableReminder: boolean) {
+	async function handleSubscribe(
+		enableReminder: boolean,
+		resetExisting = false,
+	) {
 		if (!settings?.vapidPublicKey || isBusy) return;
 		setIsBusy(true);
 		setError(null);
 		setMessage(null);
 		let createdSubscription: PushSubscription | null = null;
+		let registrationAttempted = false;
+		let rollbackFailed = false;
 
 		try {
+			if (
+				pendingRollback &&
+				!(await rollbackSubscription(
+					pendingRollback.subscription,
+					pendingRollback.server,
+				))
+			) {
+				rollbackFailed = true;
+				throw new Error("Push subscription rollback is still pending");
+			}
+			if (resetExisting) {
+				// A prior account may own the existing endpoint. Revoking the
+				// browser subscription forces a fresh endpoint without moving ownership.
+				const oldSubscription = await getCurrentSubscription();
+				if (oldSubscription && !(await oldSubscription.unsubscribe())) {
+					throw new Error("Could not revoke existing push subscription");
+				}
+				setDeviceSubscribed(false);
+			}
 			const { subscription, created } = await subscribeCurrentDevice(
 				settings.vapidPublicKey,
 			);
 			if (created) createdSubscription = subscription;
-			await registerPushSubscription(serializePushSubscription(subscription));
+			const serialized = serializePushSubscription(subscription);
+			// A lost PUT response may still have committed on the server.
+			registrationAttempted = true;
+			await registerPushSubscription(serialized);
 
 			let nextSettings = settings;
 			if (enableReminder && !settings.enabled) {
@@ -126,6 +185,7 @@ export function NotificationSettingsCard({
 			setSettings(nextSettings);
 			setNotifyAt(nextSettings.notifyAt);
 			setDeviceSubscribed(true);
+			setNeedsRecovery(false);
 			setMessage(
 				enableReminder
 					? "リマインダーをオンにしました。"
@@ -133,7 +193,10 @@ export function NotificationSettingsCard({
 			);
 		} catch (cause) {
 			if (createdSubscription) {
-				await createdSubscription.unsubscribe().catch(() => false);
+				rollbackFailed = !(await rollbackSubscription(
+					createdSubscription,
+					registrationAttempted,
+				));
 			}
 			if (cause instanceof DOMException && cause.name === "NotAllowedError") {
 				setError(
@@ -141,8 +204,28 @@ export function NotificationSettingsCard({
 				);
 			} else if (isApiClientError(cause) && cause.status === 401) {
 				await onUnauthorized();
+			} else if (
+				isApiClientError(cause) &&
+				cause.code === "PUSH_SUBSCRIPTION_CONFLICT"
+			) {
+				setNeedsRecovery(true);
+				setError(
+					"別アカウントがこの端末の通知登録を利用しています。下のボタンから購読を作り直せます。",
+				);
+			} else if (
+				isApiClientError(cause) &&
+				(cause.code === "PUSH_SUBSCRIPTION_LIMIT_EXCEEDED" ||
+					cause.code === "PUSH_REGISTRATION_RATE_LIMITED" ||
+					cause.code === "PUSH_ENDPOINT_NOT_ALLOWED")
+			) {
+				setError(cause.message);
 			} else {
 				setError("通知を有効にできませんでした。もう一度お試しください。");
+			}
+			if (rollbackFailed) {
+				setMessage(
+					"通知登録の後片付けが完了していません。接続を確認してもう一度登録すると解除を再試行します。解消しない場合は再ログインして通知設定をご確認ください。",
+				);
 			}
 		} finally {
 			setIsBusy(false);
@@ -161,16 +244,13 @@ export function NotificationSettingsCard({
 			setNotifyAt(nextSettings.notifyAt);
 
 			try {
-				const subscription = await getCurrentSubscription();
-				if (subscription) {
-					await unregisterPushSubscription({ endpoint: subscription.endpoint });
-					await subscription.unsubscribe();
-				}
+				await releaseCurrentDevicePushSubscription();
 				setDeviceSubscribed(false);
+				setNeedsRecovery(false);
 				setMessage("リマインダーをオフにしました。");
 			} catch {
 				setMessage(
-					"リマインダーはオフです。この端末の通知登録は次回の設定時に再同期されます。",
+					"リマインダーはオフです。端末の通知解除に失敗した可能性があります。再度通知設定をご確認ください。",
 				);
 			}
 		} catch (cause) {
@@ -269,7 +349,7 @@ export function NotificationSettingsCard({
 						{settings?.enabled ? "リマインダー: オン" : "リマインダー: オフ"}
 						{settings?.enabled
 							? deviceSubscribed
-								? " / この端末: 登録済み"
+								? " / この端末: ブラウザ購読あり"
 								: " / この端末: 未登録"
 							: ""}
 					</p>
@@ -306,14 +386,24 @@ export function NotificationSettingsCard({
 
 					{settings?.enabled ? (
 						deviceSubscribed ? (
-							<button
-								className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
-								disabled={isBusy}
-								onClick={() => void handleDisable()}
-								type="button"
-							>
-								リマインダーをオフにする
-							</button>
+							<div className="flex flex-col gap-2">
+								<button
+									className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+									disabled={isBusy}
+									onClick={() => void handleDisable()}
+									type="button"
+								>
+									リマインダーをオフにする
+								</button>
+								<button
+									className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+									disabled={isBusy}
+									onClick={() => void handleSubscribe(false)}
+									type="button"
+								>
+									この端末の登録を確認・更新する
+								</button>
+							</div>
 						) : (
 							<button
 								className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -346,6 +436,22 @@ export function NotificationSettingsCard({
 				<p className="mt-4 text-sm text-amber-800" role="status">
 					{permissionHint}
 				</p>
+			) : null}
+			{needsRecovery && settings?.vapidPublicKey ? (
+				<div className="mt-4">
+					<p className="text-sm text-stone-700">
+						旧アカウントにログインできなくても、ブラウザの購読を無効にして新しく登録できます。
+						旧アカウント側の記録は所有権を移さず、無効通知として後で整理されます。
+					</p>
+					<button
+						className="mt-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 disabled:opacity-50"
+						disabled={isBusy}
+						onClick={() => void handleSubscribe(!settings.enabled, true)}
+						type="button"
+					>
+						この端末の通知登録を作り直す
+					</button>
+				</div>
 			) : null}
 			{message ? (
 				<p
